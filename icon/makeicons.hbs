@@ -1,0 +1,19 @@
+<IconSets>
+{{#each layouts}}
+{{#each sprites}}
+<Set>
+	<Name>{{../classname}}</Name>
+	<Url>{{url}}</Url>
+</Set>
+{{/each}}
+
+{{#each layout.items}}
+<Icon>
+	<Set>{{../classname}}</Set>
+	<Name>{{meta.name}}</Name>
+	<X>{{x}}</X>
+	<Y>{{y}}</Y>
+</Icon>
+{{/each}}
+{{/each}}
+</IconSets>
