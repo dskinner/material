@@ -12,7 +12,7 @@ Features currently provided were written to determine the exact nature of moving
 
 * Key light shadows. These shadows are not approximated on the material. This can be seen by tilting a view matrix and inspecting. The current implementation is a bit messy but failry performant on mid ranged android devices.
 
-* Material design icons, mdpi. See material/icon package. This currently provides 913 icons at 48x48 px as a single texture. While not suitable for hires display, this is more than suitable for development of the package itself. A script in material/icon can be expanded to provide desired sets of icons at high resolution.
+* Material design icons, mdpi. See material/icon package. This currently provides 913 icons at 48x48 px as a single texture. While not suitable for hires display, this is more than suitable for development of the package itself. A script in material/icon can be expanded to provide desired sets of icons at high resolution. Grab a copy of the texture here: https://drive.google.com/a/dasa.cc/file/d/0B6hxg-gC2Uz_cG1DakFNcDFxYlk/view
 
 * Material. This is a basic implementation of material, as it's defined in the spec itself. This also happens to include 1px of thickness (dp is not currently implemented). Only two behavior flags are currently recognized declaring material flat (transparent) or raised (has shadow).
 
