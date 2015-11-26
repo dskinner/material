@@ -22,6 +22,14 @@ Features currently provided were written to determine the exact nature of moving
 
 There may be some items I'm overlooking that are also provided.
 
+## Roadmap
+
+One of the most important aspects of any UI is to have an effective way to layout items. Such a solution is purely numerical. With that in mind, the current focus is to provide an implementation of material design's [Adaptive UI](https://www.google.com/design/spec/layout/adaptive-ui.html). The implementation should not be interdependent on any other portion of package material. It's conceivable for example to make use of such a package for reflowing terminal based UIs.
+
+The package shall be well developed, documented, and tested. There are enough minimal implementations of other portions of material design to provide meaningful examples of such a package once complete. Only upon completion of Adaptive UI will a determination of the next step be made.
+
+As for a timeframe on the whole of package material with only the spare time of a single developer, I could only wildly guesstimate a time frame of 2+ years for completion. Part of this is a strong urge to take a slow-and-steady pace for each portion of package material to best ensure design choices, proper documentation, and reasonably complete testing.
+
 ## Contributing
 
 Everything in this package is in-flux. If you're interested in contributing, understand the current focus is iterating on the currently provided features. New features will not be accepted unless they are important for establishing a baseline in determining future functionality and api. Anything beyond the material design spec is out of scope for this package and will not be accepted.
