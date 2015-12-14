@@ -4,8 +4,6 @@ package material
 // https://www.mapbox.com/blog/text-signed-distance-fields/
 
 import (
-	"dasa.cc/htm"
-	"dasa.cc/ltree"
 	"dasa.cc/material/glutil"
 	"dasa.cc/material/icon"
 	"dasa.cc/material/simplex"
@@ -13,69 +11,15 @@ import (
 	"golang.org/x/mobile/gl"
 )
 
-func htmBuffers(ctx gl.Context, lvl int) (glutil.FloatBuffer, glutil.UintBuffer) {
-	h := htm.New()
-	h.SubDivide(lvl)
-	var verts []float32
-	for _, v := range h.Vertices {
-		verts = append(verts, float32(v.X), float32(v.Y), float32(v.Z))
-	}
-	vbuf := glutil.NewFloatBuffer(ctx, verts, gl.STATIC_DRAW)
-	ibuf := glutil.NewUintBuffer(ctx, h.Indices(), gl.STATIC_DRAW)
-	return vbuf, ibuf
-}
-
-func ltreeBuffers(ctx gl.Context, lvl int, flipy bool) (glutil.FloatBuffer, glutil.UintBuffer) {
-	nodes := make([]uint32, 0, ltree.Cap(lvl))
-	ltree.Split(0, lvl, &nodes)
-	var verts []float32
-	var inds []uint32
-	for _, key := range nodes {
-		nx, ny, size := ltree.Cell(key)
-		verts = append(verts,
-			nx, ny,
-			nx+size, ny,
-			nx+size, ny+size,
-			nx, ny+size,
-		)
-		l := uint32(len(verts) / 2)
-		inds = append(inds, l-2, l-3, l-4, l-2, l-4, l-1)
-	}
-	if flipy {
-		for i, x := range verts {
-			if i%2 != 0 {
-				verts[i] = 1 - x
-			}
-		}
-	}
-	vbuf := glutil.NewFloatBuffer(ctx, verts, gl.STATIC_DRAW)
-	ibuf := glutil.NewUintBuffer(ctx, inds, gl.STATIC_DRAW)
-	return vbuf, ibuf
-}
-
 var (
 	DefaultFilter = glutil.TextureFilter(gl.LINEAR, gl.LINEAR)
 	DefaultWrap   = glutil.TextureWrap(gl.REPEAT, gl.REPEAT)
 )
 
-// func iconuv(ctx gl.Context) glutil.FloatBuffer {
-// n := float32(0.0234375)
-// return glutil.NewFloatBuffer(ctx, []float32{
-// x, y,
-// x, y + n,
-// x + n, y + n,
-// x + n, y,
-// x, y,
-// x, y + n,
-// x + n, y + n,
-// x + n, y,
-// }, gl.STATIC_DRAW)
-// }
-
-type Dp float32
-
 type Material struct {
 	Box
+
+	col4, col8, col12 int
 
 	BehaviorFlags Behavior
 
@@ -102,6 +46,10 @@ type Material struct {
 	// TODO tmp impl
 	IsCircle bool
 	ucirc    gl.Uniform
+}
+
+func (mtrl *Material) Span(col4, col8, col12 int) {
+	mtrl.col4, mtrl.col8, mtrl.col12 = col4, col8, col12
 }
 
 func New(ctx gl.Context, color Color) *Material {
@@ -176,8 +124,6 @@ func (mtrl *Material) Bind(lpro *simplex.Program) {
 	mtrl.Box = NewBox(lpro)
 }
 
-func (mtrl *Material) Z() float32       { return mtrl.world[2][3] }
-func (mtrl *Material) SetZ(z float32)   { mtrl.world[2][3] = z }
 func (mtrl *Material) World() *f32.Mat4 { return &mtrl.world }
 
 // TODO seems to slow down goimport ...
@@ -260,6 +206,49 @@ type Toolbar struct {
 func (bar *Toolbar) AddAction(btn *Button) {
 	btn.BehaviorFlags = DescriptorFlat
 	bar.actions = append(bar.actions, btn)
+}
+
+func (tb *Toolbar) Constraints(env *Environment) []simplex.Constraint {
+	stp := env.Grid.StepSize()
+	var (
+		width, height float32
+		btnsize       float32
+	)
+
+	switch env.Grid.Columns {
+	case 4:
+		width = float32(tb.col4) * stp
+		height = Dp(56).Px()
+		btnsize = Dp(24).Px()
+	case 8:
+		width = float32(tb.col8) * stp
+		height = Dp(56).Px()
+		btnsize = Dp(24).Px()
+	case 12:
+		width = float32(tb.col12) * stp
+		height = Dp(64).Px()
+		btnsize = Dp(32).Px()
+	}
+	nav := tb.Nav
+	cns := []simplex.Constraint{
+		tb.Width(width), tb.Height(height),
+		tb.Start(env.Grid.Margin), tb.Top(float32(windowSize.HeightPx) - env.Grid.Margin),
+		tb.Z(4),
+		nav.Width(btnsize), nav.Height(btnsize), nav.Z(5),
+		nav.StartIn(tb.Box, env.Grid.Gutter),
+		nav.CenterVerticalIn(tb.Box),
+	}
+
+	for i, btn := range tb.actions {
+		cns = append(cns, btn.Width(btnsize), btn.Height(btnsize), btn.Z(5), btn.CenterVerticalIn(tb.Box))
+		if i == 0 {
+			cns = append(cns, btn.EndIn(tb.Box, env.Grid.Gutter))
+		} else {
+			cns = append(cns, btn.Before(tb.actions[i-1].Box, env.Grid.Gutter))
+		}
+	}
+
+	return cns
 }
 
 type NavDrawer struct {

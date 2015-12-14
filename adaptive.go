@@ -1,7 +1,6 @@
 package material
 
 import (
-	"golang.org/x/mobile/event/size"
 	"golang.org/x/mobile/exp/f32"
 	"golang.org/x/mobile/gl"
 )
@@ -49,25 +48,24 @@ type Grid struct {
 	Margin  float32
 	Gutter  float32
 	Columns int
-	Size    size.Event
 
 	debug *Material
 }
 
-func (g *Grid) StepSize() float32 {
-	return (float32(g.Size.WidthPx) - (g.Margin * 2)) / float32(g.Columns)
+func (gd *Grid) StepSize() float32 {
+	return (float32(windowSize.WidthPx) - (gd.Margin * 2)) / float32(gd.Columns)
 }
 
 // TODO avoid the pointer
-func NewGrid(sz size.Event) *Grid {
+func NewGrid() *Grid {
 	// by breakpoints
-	g := &Grid{Margin: 24, Gutter: 24, Columns: 12, Size: sz}
-	if sz.WidthPx < 600 || sz.HeightPx < 600 {
-		g.Margin, g.Gutter = 16, 16
+	g := &Grid{Margin: 24, Gutter: 24, Columns: 12}
+	if windowSize.WidthPx < 600 || windowSize.HeightPx < 600 {
+		g.Margin, g.Gutter = 16, 16 // TODO dp vals
 	}
-	if sz.WidthPx < 480 {
+	if windowSize.WidthPx < 480 {
 		g.Columns = 4
-	} else if sz.WidthPx < 720 {
+	} else if windowSize.WidthPx < 720 {
 		g.Columns = 8
 	}
 	return g
@@ -78,7 +76,7 @@ func (gd *Grid) draw(ctx gl.Context, view, proj f32.Mat4) {
 		gd.debug = New(ctx, Color(0x03A9F499))
 		gd.debug.world.Identity()
 		gd.debug.world[0][0] = gd.Gutter + gd.Margin
-		gd.debug.world[1][1] = float32(gd.Size.HeightPx)
+		gd.debug.world[1][1] = float32(windowSize.HeightPx)
 	}
 
 	step := gd.StepSize()

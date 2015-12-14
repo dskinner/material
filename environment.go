@@ -18,9 +18,19 @@ import (
 	"golang.org/x/mobile/gl"
 )
 
+var windowSize size.Event
+
+type Dp float32
+
+func (dp Dp) Px() float32 {
+	// TODO
+	// density := float32(windowSize.WidthPx) / (float32(windowSize.WidthPt) / 72)
+	// return float32(dp) * (density / 160)
+	return float32(dp)
+}
+
 type Sheet interface {
 	Draw(ctx gl.Context, view, proj f32.Mat4)
-	Z() float32
 	Bind(*simplex.Program)
 	UpdateWorld(*simplex.Program)
 	Contains(x, y float32) bool
@@ -31,7 +41,7 @@ type byZ []Sheet
 
 func (a byZ) Len() int           { return len(a) }
 func (a byZ) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a byZ) Less(i, j int) bool { return a[i].Z() < a[j].Z() }
+func (a byZ) Less(i, j int) bool { return a[i].M().world[2][3] < a[j].M().world[2][3] }
 
 type Environment struct {
 	View f32.Mat4
@@ -40,7 +50,6 @@ type Environment struct {
 	plt    Palette
 	sheets []Sheet
 
-	sz   size.Event
 	Grid *Grid
 
 	lprg *simplex.Program
@@ -68,16 +77,16 @@ func (env *Environment) LoadIcons(ctx gl.Context) {
 }
 
 func (env *Environment) SetPerspective(sz size.Event) {
-	env.sz = sz
-	env.Grid = NewGrid(sz)
+	windowSize = sz
+	env.Grid = NewGrid()
 	env.View.Identity() // TODO not here, only on creation
 	env.proj.Identity()
 	glutil.Perspective(&env.proj, 0, float32(sz.WidthPx), 0, float32(sz.HeightPx))
 }
 
 func (env *Environment) SetOrtho(sz size.Event) {
-	env.sz = sz
-	env.Grid = NewGrid(sz)
+	windowSize = sz
+	env.Grid = NewGrid()
 	env.View.Identity() // TODO not here, only on creation
 	env.proj.Identity()
 	glutil.Ortho(&env.proj, 0, float32(sz.WidthPx), 0, float32(sz.HeightPx), 1, 10000)
@@ -108,7 +117,9 @@ func (env *Environment) AddConstraints(cns ...simplex.Constraint) {
 }
 
 func (env *Environment) FinishLayout() {
-	env.lprg.Minimize()
+	if err := env.lprg.Minimize(); err != nil {
+		log.Println(err)
+	}
 	for _, sheet := range env.sheets {
 		sheet.UpdateWorld(env.lprg)
 	}
@@ -127,7 +138,7 @@ func (env *Environment) DrawGridDebug(ctx gl.Context) {
 }
 
 func (env *Environment) Touch(ev touch.Event) bool {
-	ex, ey := ev.X, float32(env.sz.HeightPx)-ev.Y
+	ex, ey := ev.X, float32(windowSize.HeightPx)-ev.Y
 	// for _, sheet := range env.sheets {
 	for i := len(env.sheets) - 1; i >= 0; i-- {
 		sheet := env.sheets[i]
@@ -154,7 +165,7 @@ func (env *Environment) NewButton(ctx gl.Context) *Button {
 	return btn
 }
 
-func (env *Environment) NewAppbar(ctx gl.Context) *Toolbar {
+func (env *Environment) NewToolbar(ctx gl.Context) *Toolbar {
 	bar := &Toolbar{
 		Material: New(ctx, Black),
 		Nav:      env.NewButton(ctx),
@@ -162,7 +173,6 @@ func (env *Environment) NewAppbar(ctx gl.Context) *Toolbar {
 	bar.SetColor(env.plt.Light) // create specific ColorFromPalette on each type to localize selection
 	bar.Nav.BehaviorFlags = DescriptorFlat
 	bar.Nav.SetIcon(icon.NavigationMenu)
-	// bar.SetZ(4)                 // TODO should probably get coordinated with layout
 	env.sheets = append(env.sheets, bar)
 	return bar
 }
