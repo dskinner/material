@@ -85,6 +85,23 @@ func (prg *Program) Z() float32 {
 
 func (prg *Program) AddConstraints(cns ...Constraint) {
 	for _, cn := range cns {
+		// if rhs is negative, multiply by -1
+		if cn.To < 0 {
+			for i := range cn.Cs {
+				cn.Cs[i].C *= -1
+			}
+			switch cn.Eq {
+			case GreaterEq:
+				cn.Eq = LessEq
+			case LessEq:
+				cn.Eq = GreaterEq
+			case Equal:
+				panic("equality must be greater than or equal to zero")
+			}
+		}
+
+		// TODO handle unrestricted variables
+
 		vcn := make(Vec, len(prg.c))
 		for _, v := range cn.Cs {
 			vcn[v.V.int] = v.C
@@ -141,13 +158,16 @@ func (prg *Program) init(min bool) Mat {
 		}
 	}
 
-	tbl := make(Mat, len(prg.a)+1)
-	for i, v := range prg.a {
-		tbl[i] = append(v, prg.s[i]...)
+	tbl := make(Mat, len(prg.b))
+	for i := range tbl {
+		tbl[i] = append(tbl[i], prg.a[i]...)
+		if len(prg.s) != 0 {
+			tbl[i] = append(tbl[i], prg.s[i]...)
+		}
 		tbl[i] = append(tbl[i], prg.b[i])
 	}
+	tbl = append(tbl, make(Vec, len(tbl[0])))
 	n := len(tbl) - 1
-	tbl[n] = make(Vec, len(prg.c)+len(prg.b)+1)
 	if min {
 		for j, x := range prg.c {
 			tbl[n][j] = -x
@@ -155,6 +175,7 @@ func (prg *Program) init(min bool) Mat {
 	} else {
 		copy(tbl[n], prg.c)
 	}
+
 	return tbl
 }
 
@@ -180,7 +201,6 @@ func (prg *Program) iter() error {
 			if prg.tbl.IsColIdent(j) {
 				continue
 			}
-			// second condition indicates alternate optimum; so, allow non-basics at zero as candidate to enter.
 			if y > py || (py == 0 && y == 0 && j < len(prg.c)) {
 				prg.tbl.Column(&col, j)
 				pj = j
@@ -230,6 +250,9 @@ func (prg *Program) iter() error {
 // the solution values are greater than zero.
 // TODO this isn't exactly a valid check
 func (prg *Program) isBasicFeasible() bool {
+	if len(prg.s) == 0 {
+		return false
+	}
 	for _, row := range prg.s {
 		for _, y := range row {
 			if y < 0 {
@@ -254,7 +277,10 @@ func (prg *Program) twophase(min bool) error {
 
 	// make new objective function for artificials
 	i := len(prg.tbl) - 1
-	offset := len(prg.c) + len(prg.s[0])
+	offset := len(prg.c)
+	if len(prg.s) != 0 {
+		offset += len(prg.s[0])
+	}
 	end := len(prg.tbl[0]) - 1
 	for j := range prg.tbl[i] {
 		if j < offset || j == end {

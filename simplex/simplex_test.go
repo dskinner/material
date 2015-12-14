@@ -120,6 +120,27 @@ func TestInfeasible(t *testing.T) {
 	}
 }
 
+func TestEquations(t *testing.T) {
+	prg := new(Program)
+	x1, x2 := prg.Var(1), prg.Var(1)
+	prg.AddConstraints(
+		Constrain(Coef{2, x1}, Coef{3, x2}).Equal(6),
+		Constrain(Coef{4, x1}, Coef{6, x2}).Equal(12),
+		Constrain(Coef{1, x1}).GreaterEq(0),
+		Constrain(Coef{1, x2}).GreaterEq(0),
+	)
+
+	if err := prg.Minimize(); err != nil {
+		t.Log(err)
+	}
+
+	prg.For(&x1, &x2)
+	var wz, w1, w2 float32 = 2, 0, 2
+	if z := prg.Z(); !equals(z, wz) || !equals(x1.Val, w1) || !equals(x2.Val, w2) {
+		t.Fatalf("unexpected result:\nHave Z=%.2f x1=%.2f x2=%.2f\nWant Z=%.2f x1=%.2f x2=%.2f\n%s\n", z, x1.Val, x2.Val, wz, w1, w2, prg.tbl)
+	}
+}
+
 func TestTwoLines(t *testing.T) {
 	// Minimize[{a + b + c + d, b - a >= 50 && c - b == 10 && d - c >= 50 && b <= 640 && d <= 640 && a >= 0 && c >= 0}, {a, b, c, d}]
 	prg := new(Program)
