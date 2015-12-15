@@ -50,11 +50,19 @@ type Environment struct {
 	plt    Palette
 	sheets []Sheet
 
+	Box  Box
 	Grid *Grid
 
 	lprg *simplex.Program
 
 	icons glutil.Texture
+
+	watchEvent chan string
+	watchQuit  chan bool
+}
+
+func (env *Environment) WatchShaders() {
+	env.watchEvent, env.watchQuit = watchShaders()
 }
 
 func (env *Environment) LoadIcons(ctx gl.Context) {
@@ -107,9 +115,16 @@ func (env *Environment) SetPalette(plt Palette) {
 
 func (env *Environment) StartLayout() {
 	env.lprg = new(simplex.Program)
+	env.Box = NewBox(env.lprg)
 	for _, sheet := range env.sheets {
 		sheet.Bind(env.lprg)
 	}
+	env.AddConstraints(
+		env.Box.Width(float32(windowSize.WidthPx)),
+		env.Box.Height(float32(windowSize.HeightPx)),
+		env.Box.Z(0),
+		env.Box.Start(0), env.Box.Top(float32(windowSize.HeightPx)),
+	)
 }
 
 func (env *Environment) AddConstraints(cns ...simplex.Constraint) {
@@ -126,6 +141,13 @@ func (env *Environment) FinishLayout() {
 }
 
 func (env *Environment) Draw(ctx gl.Context) {
+	select {
+	case <-env.watchEvent:
+		for _, sheet := range env.sheets {
+			sheet.M().reloadProgram(ctx) // TODO ...
+		}
+	default:
+	}
 	sort.Sort(byZ(env.sheets))
 	for _, sheet := range env.sheets {
 		sheet.M().Texture = env.icons
@@ -143,7 +165,6 @@ func (env *Environment) Touch(ev touch.Event) bool {
 	for i := len(env.sheets) - 1; i >= 0; i-- {
 		sheet := env.sheets[i]
 		if sheet.Contains(ex, ey) {
-			log.Println("Hit!", ev)
 			switch sheet := sheet.(type) {
 			case *Button:
 				if ev.Type == touch.TypeBegin && sheet.OnPress != nil {
@@ -156,6 +177,13 @@ func (env *Environment) Touch(ev touch.Event) bool {
 		}
 	}
 	return false
+}
+
+func (env *Environment) NewMaterial(ctx gl.Context) *Material {
+	m := New(ctx, Black)
+	m.SetColor(env.plt.Light)
+	env.sheets = append(env.sheets, m)
+	return m
 }
 
 func (env *Environment) NewButton(ctx gl.Context) *Button {

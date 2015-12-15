@@ -40,6 +40,8 @@ type Material struct {
 	uw0, uv0, up0 gl.Uniform     // material projection
 	uw1, uv1, up1 gl.Uniform     // shadow projection
 
+	us1 gl.Uniform
+
 	utex0 gl.Uniform
 	atc0  gl.Attrib
 
@@ -92,6 +94,11 @@ func New(ctx gl.Context, color Color) *Material {
 		n, n,
 	}, gl.STATIC_DRAW)
 
+	mtrl.reloadProgram(ctx)
+	return mtrl
+}
+
+func (mtrl *Material) reloadProgram(ctx gl.Context) {
 	mtrl.prg0.CreateAndLink(ctx, glutil.ShaderAsset(gl.VERTEX_SHADER, "material-vert.glsl"), glutil.ShaderAsset(gl.FRAGMENT_SHADER, "material-frag.glsl"))
 	mtrl.uw0 = mtrl.prg0.Uniform(ctx, "world")
 	mtrl.uv0 = mtrl.prg0.Uniform(ctx, "view")
@@ -108,8 +115,8 @@ func New(ctx gl.Context, color Color) *Material {
 	mtrl.uv1 = mtrl.prg1.Uniform(ctx, "view")
 	mtrl.up1 = mtrl.prg1.Uniform(ctx, "proj")
 	mtrl.uc1 = mtrl.prg1.Uniform(ctx, "color")
+	mtrl.us1 = mtrl.prg1.Uniform(ctx, "size")
 	mtrl.ap1 = mtrl.prg1.Attrib(ctx, "position")
-	return mtrl
 }
 
 func (mtrl *Material) SetColor(color Color) {
@@ -129,24 +136,45 @@ func (mtrl *Material) World() *f32.Mat4 { return &mtrl.world }
 // TODO seems to slow down goimport ...
 var shdr, shdg, shdb, shda = BlueGrey900.RGBA()
 
+func min(a, b float32) float32 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func max(a, b float32) float32 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 func (mtrl *Material) Draw(ctx gl.Context, view, proj f32.Mat4) {
 	if mtrl.BehaviorFlags&DescriptorRaised == DescriptorRaised {
 		// provide larger world mat for shadows to draw within
 		m := mtrl.world
 		w, h := m[0][0], m[1][1]
 		z := m[2][3]
-		s := float32(1.25) + (z * 0.01414)
-		// s := float32(2)
-		m.Scale(&m, s, s, 1)
+
+		s := float32(1.07) + (z * 0.01414)
+		sw := m[0][0]*s - w
+		sh := m[1][1]*s - h
+
+		s = min(sw, sh)
+		m[0][0] += s
+		m[1][1] += s
+
 		m[0][3] -= (m[0][0] - w) / 2
 		m[1][3] -= (m[1][1] - h) / 2
-		// m[1][3] -= 2 // shadow y-offset
+		m[1][3] -= 2 // shadow y-offset
 
 		// draw shadow
 		mtrl.prg1.Use(ctx)
 		mtrl.prg1.Mat4(ctx, mtrl.uw1, m)
 		mtrl.prg1.Mat4(ctx, mtrl.uv1, view)
 		mtrl.prg1.Mat4(ctx, mtrl.up1, proj)
+		mtrl.prg1.U2f(ctx, mtrl.us1, w, h)
 		mtrl.prg1.U4f(ctx, mtrl.uc1, shdr, shdg, shdb, shda)
 		mtrl.vbuf.Bind(ctx)
 		mtrl.ibuf.Bind(ctx)
@@ -231,9 +259,8 @@ func (tb *Toolbar) Constraints(env *Environment) []simplex.Constraint {
 	}
 	nav := tb.Nav
 	cns := []simplex.Constraint{
-		tb.Width(width), tb.Height(height),
-		tb.Start(env.Grid.Margin), tb.Top(float32(windowSize.HeightPx) - env.Grid.Margin),
-		tb.Z(4),
+		tb.Width(width), tb.Height(height), tb.Z(4),
+		tb.StartIn(env.Box, env.Grid.Margin), tb.TopIn(env.Box, env.Grid.Margin),
 		nav.Width(btnsize), nav.Height(btnsize), nav.Z(5),
 		nav.StartIn(tb.Box, env.Grid.Gutter),
 		nav.CenterVerticalIn(tb.Box),
