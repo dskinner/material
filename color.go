@@ -12,6 +12,10 @@ func (c Color) RGBA() (r, g, b, a float32) {
 	return
 }
 
+func (c Color) WithAlpha(a uint8) Color {
+	return c ^ Color(255-a)
+}
+
 const (
 	RedPrimary Color = Red500
 	Red50      Color = 0xFFEBEEFF
