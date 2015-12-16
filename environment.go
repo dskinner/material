@@ -172,6 +172,7 @@ func (env *Environment) Touch(ev touch.Event) bool {
 				}
 			default:
 				log.Printf("Unhandled type %T\n", sheet)
+				continue
 			}
 			return true
 		}
@@ -201,6 +202,7 @@ func (env *Environment) NewToolbar(ctx gl.Context) *Toolbar {
 	bar.SetColor(env.plt.Light) // create specific ColorFromPalette on each type to localize selection
 	bar.Nav.BehaviorFlags = DescriptorFlat
 	bar.Nav.SetIcon(icon.NavigationMenu)
+	bar.Nav.SetColor(Black)
 	env.sheets = append(env.sheets, bar)
 	return bar
 }

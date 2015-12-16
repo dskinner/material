@@ -47,7 +47,8 @@ type Material struct {
 
 	// TODO tmp impl
 	IsCircle bool
-	ucirc    gl.Uniform
+	ucirc0   gl.Uniform
+	ucirc1   gl.Uniform
 }
 
 func (mtrl *Material) Span(col4, col8, col12 int) {
@@ -108,7 +109,7 @@ func (mtrl *Material) reloadProgram(ctx gl.Context) {
 	mtrl.utex0 = mtrl.prg0.Uniform(ctx, "tex0")
 	mtrl.atc0 = mtrl.prg0.Attrib(ctx, "tc0")
 	mtrl.uicon = mtrl.prg0.Uniform(ctx, "icon")
-	mtrl.ucirc = mtrl.prg0.Uniform(ctx, "circle")
+	mtrl.ucirc0 = mtrl.prg0.Uniform(ctx, "circle")
 
 	mtrl.prg1.CreateAndLink(ctx, glutil.ShaderAsset(gl.VERTEX_SHADER, "material-shadow-vert.glsl"), glutil.ShaderAsset(gl.FRAGMENT_SHADER, "material-shadow-frag.glsl"))
 	mtrl.uw1 = mtrl.prg1.Uniform(ctx, "world")
@@ -116,6 +117,7 @@ func (mtrl *Material) reloadProgram(ctx gl.Context) {
 	mtrl.up1 = mtrl.prg1.Uniform(ctx, "proj")
 	mtrl.uc1 = mtrl.prg1.Uniform(ctx, "color")
 	mtrl.us1 = mtrl.prg1.Uniform(ctx, "size")
+	mtrl.ucirc1 = mtrl.prg1.Uniform(ctx, "circle")
 	mtrl.ap1 = mtrl.prg1.Attrib(ctx, "position")
 }
 
@@ -176,6 +178,9 @@ func (mtrl *Material) Draw(ctx gl.Context, view, proj f32.Mat4) {
 		mtrl.prg1.Mat4(ctx, mtrl.up1, proj)
 		mtrl.prg1.U2f(ctx, mtrl.us1, w, h)
 		mtrl.prg1.U4f(ctx, mtrl.uc1, shdr, shdg, shdb, shda)
+		if mtrl.IsCircle {
+			mtrl.prg1.U1i(ctx, mtrl.ucirc1, 1)
+		}
 		mtrl.vbuf.Bind(ctx)
 		mtrl.ibuf.Bind(ctx)
 		mtrl.prg1.Pointer(ctx, mtrl.ap1, 3)
@@ -195,7 +200,7 @@ func (mtrl *Material) Draw(ctx gl.Context, view, proj f32.Mat4) {
 	mtrl.prg0.U4f(ctx, mtrl.uc0, mtrl.cr, mtrl.cg, mtrl.cb, alpha)
 	mtrl.prg0.U2f(ctx, mtrl.uicon, mtrl.icx, mtrl.icy)
 	if mtrl.IsCircle {
-		mtrl.prg0.U1i(ctx, mtrl.ucirc, 1)
+		mtrl.prg0.U1i(ctx, mtrl.ucirc0, 1)
 	}
 
 	mtrl.vbuf.Bind(ctx)
@@ -233,6 +238,7 @@ type Toolbar struct {
 
 func (bar *Toolbar) AddAction(btn *Button) {
 	btn.BehaviorFlags = DescriptorFlat
+	btn.SetColor(Black)
 	bar.actions = append(bar.actions, btn)
 }
 
