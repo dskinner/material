@@ -23,7 +23,7 @@ import (
 var (
 	dpi      = flag.Float64("dpi", 72, "screen resolution in Dots Per Inch")
 	fontfile = flag.String("fontfile", "", "filename of the ttf font")
-	size     = flag.Float64("size", 72, "font size in points")
+	size     = flag.Float64("size", 240, "font size in points")
 	spacing  = flag.Float64("spacing", 1.2, "line spacing (e.g. 2 means double spaced)")
 )
 
