@@ -23,10 +23,11 @@ var windowSize size.Event
 type Dp float32
 
 func (dp Dp) Px() float32 {
-	// TODO
-	// density := float32(windowSize.WidthPx) / (float32(windowSize.WidthPt) / 72)
-	// return float32(dp) * (density / 160)
-	return float32(dp)
+	if windowSize.PixelsPerPt == 1 {
+		return float32(dp)
+	}
+	density := windowSize.PixelsPerPt * 72
+	return float32(dp) * density / 160
 }
 
 type Sheet interface {
@@ -35,6 +36,7 @@ type Sheet interface {
 	UpdateWorld(*simplex.Program)
 	Contains(x, y float32) bool
 	M() *Material
+	Constraints(*Environment) []simplex.Constraint
 }
 
 type byZ []Sheet
@@ -55,7 +57,8 @@ type Environment struct {
 
 	lprg *simplex.Program
 
-	icons glutil.Texture
+	icons  glutil.Texture
+	glyphs glutil.Texture
 
 	watchEvent chan string
 	watchQuit  chan bool
@@ -81,7 +84,23 @@ func (env *Environment) LoadIcons(ctx gl.Context) {
 
 	env.icons.Create(ctx)
 	env.icons.Bind(ctx, DefaultFilter, DefaultWrap)
-	env.icons.Update(ctx, 2048, 2048, dst.Pix)
+	env.icons.Update(ctx, 0, 2048, 2048, dst.Pix)
+}
+
+func (env *Environment) LoadGlyphs(ctx gl.Context) {
+	src, _, err := image.Decode(glutil.MustOpen("source-code-pro-glyphs-sdf.png"))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	r := image.Rect(0, 0, 512, 512)
+	dst := image.NewNRGBA(r)
+	draw.Draw(dst, r, src, image.ZP, draw.Src)
+
+	env.glyphs.Create(ctx)
+	env.glyphs.Bind(ctx, nearestFilter, DefaultWrap)
+	env.glyphs.Update(ctx, 0, 512, 512, dst.Pix)
+	ctx.GenerateMipmap(gl.TEXTURE_2D)
 }
 
 func (env *Environment) SetPerspective(sz size.Event) {
@@ -105,9 +124,9 @@ func (env *Environment) SetPalette(plt Palette) {
 	env.plt = plt
 	for _, sheet := range env.sheets {
 		switch sheet := sheet.(type) {
-		case Button:
+		case *Button:
 			sheet.SetColor(env.plt.Primary)
-		case Toolbar:
+		case *Toolbar:
 			sheet.SetColor(env.plt.Light)
 		}
 	}
@@ -125,6 +144,9 @@ func (env *Environment) StartLayout() {
 		env.Box.Z(0),
 		env.Box.Start(0), env.Box.Top(float32(windowSize.HeightPx)),
 	)
+	for _, sheet := range env.sheets {
+		env.AddConstraints(sheet.Constraints(env)...)
+	}
 }
 
 func (env *Environment) AddConstraints(cns ...simplex.Constraint) {
@@ -151,6 +173,7 @@ func (env *Environment) Draw(ctx gl.Context) {
 	sort.Sort(byZ(env.sheets))
 	for _, sheet := range env.sheets {
 		sheet.M().Texture = env.icons
+		sheet.M().GlyphTexture = env.glyphs
 		sheet.Draw(ctx, env.View, env.proj)
 	}
 }
@@ -161,12 +184,15 @@ func (env *Environment) DrawGridDebug(ctx gl.Context) {
 
 func (env *Environment) Touch(ev touch.Event) bool {
 	ex, ey := ev.X, float32(windowSize.HeightPx)-ev.Y
-	// for _, sheet := range env.sheets {
 	for i := len(env.sheets) - 1; i >= 0; i-- {
 		sheet := env.sheets[i]
 		if sheet.Contains(ex, ey) {
 			switch sheet := sheet.(type) {
 			case *Button:
+				if ev.Type == touch.TypeBegin && sheet.OnPress != nil {
+					sheet.OnPress()
+				}
+			case *FloatingActionButton:
 				if ev.Type == touch.TypeBegin && sheet.OnPress != nil {
 					sheet.OnPress()
 				}
@@ -190,8 +216,18 @@ func (env *Environment) NewMaterial(ctx gl.Context) *Material {
 func (env *Environment) NewButton(ctx gl.Context) *Button {
 	btn := &Button{Material: New(ctx, Black)} // TODO update constructor to remove color arg
 	btn.SetColor(env.plt.Primary)
+	btn.SetIconColor(White)
 	env.sheets = append(env.sheets, btn)
 	return btn
+}
+
+func (env *Environment) NewFloatingActionButton(ctx gl.Context) *FloatingActionButton {
+	fab := &FloatingActionButton{Material: New(ctx, Black)} // TODO update constructor to remove color arg
+	fab.SetColor(env.plt.Primary)
+	fab.SetIconColor(White)
+	fab.IsCircle = true
+	env.sheets = append(env.sheets, fab)
+	return fab
 }
 
 func (env *Environment) NewToolbar(ctx gl.Context) *Toolbar {
@@ -202,7 +238,7 @@ func (env *Environment) NewToolbar(ctx gl.Context) *Toolbar {
 	bar.SetColor(env.plt.Light) // create specific ColorFromPalette on each type to localize selection
 	bar.Nav.BehaviorFlags = DescriptorFlat
 	bar.Nav.SetIcon(icon.NavigationMenu)
-	bar.Nav.SetColor(Black)
+	bar.Nav.SetIconColor(Black)
 	env.sheets = append(env.sheets, bar)
 	return bar
 }
