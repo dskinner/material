@@ -6,10 +6,13 @@ package material
 // https://lambdacube3d.wordpress.com/2014/11/12/playing-around-with-font-rendering/
 
 import (
+	"time"
+
 	"dasa.cc/material/glutil"
 	"dasa.cc/material/icon"
 	"dasa.cc/material/simplex"
 	"dasa.cc/material/text"
+	"golang.org/x/mobile/event/touch"
 	"golang.org/x/mobile/exp/f32"
 	"golang.org/x/mobile/gl"
 )
@@ -20,7 +23,6 @@ var (
 
 	nearestFilter = glutil.TextureFilter(gl.NEAREST, gl.NEAREST)
 	glyphsFilter  = glutil.TextureFilter(gl.LINEAR_MIPMAP_LINEAR, gl.LINEAR)
-	// glyphsWrap   = glutil.TextureWrap(gl.CLAMP_TO_EDGE, gl.CLAMP_TO_EDGE)
 )
 
 type Text struct {
@@ -40,6 +42,8 @@ type Text struct {
 
 	utex0 gl.Uniform // texture uniform
 	atc0  gl.Attrib  // texcoords pointer
+
+	worldfn func(*f32.Mat4)
 }
 
 func NewText(ctx gl.Context) *Text {
@@ -49,34 +53,20 @@ func NewText(ctx gl.Context) *Text {
 		0, 1, 0,
 		1, 1, 0,
 		1, 0, 0,
-		0, 0, -1,
-		0, 1, -1,
-		1, 1, -1,
-		1, 0, -1,
 	}, gl.STATIC_DRAW)
 	txt.ibuf = glutil.NewUintBuffer(ctx, []uint32{
-		0, 2, 1, 0, 3, 2,
-		2, 7, 6, 2, 3, 7,
-		7, 3, 0, 7, 0, 4,
-		4, 6, 7, 4, 5, 6,
-		6, 1, 2, 6, 5, 1,
-		1, 5, 4, 1, 4, 0,
+		0, 2, 1,
+		0, 3, 2,
 	}, gl.STATIC_DRAW)
 
 	nx := float32(36) / float32(512)
 	ny := float32(72) / float32(512)
-
 	txt.uvbuf = glutil.NewFloatBuffer(ctx, []float32{
 		0, ny,
 		0, 0,
 		nx, 0,
 		nx, ny,
-		0, ny,
-		0, 0,
-		nx, 0,
-		nx, ny,
 	}, gl.STATIC_DRAW)
-
 	txt.reloadProgram(ctx)
 	return txt
 }
@@ -97,6 +87,9 @@ func (txt *Text) reloadProgram(ctx gl.Context) {
 
 func (txt *Text) Draw(ctx gl.Context, s string, world, view, proj f32.Mat4) {
 	m := world
+	if txt.worldfn != nil {
+		txt.worldfn(&m)
+	}
 	scale := float32(58.0 / 50.0)
 	m.Scale(&m, scale, scale, 1)
 	m[0][0] = m[1][1] / 2
@@ -117,7 +110,7 @@ func (txt *Text) Draw(ctx gl.Context, s string, world, view, proj f32.Mat4) {
 		txt.uvbuf.Bind(ctx)
 		txt.prg.Pointer(ctx, txt.atc0, 2)
 	}
-	// ctx.BlendFunc(gl.ONE_MINUS_SRC_ALPHA, gl.SRC_ALPHA)
+
 	for _, r := range s {
 		txt.prg.Mat4(ctx, txt.uw, m)
 
@@ -127,18 +120,20 @@ func (txt *Text) Draw(ctx gl.Context, s string, world, view, proj f32.Mat4) {
 		m[0][3] += m[1][3] - y
 		m[1][3] = y
 
-		// var icx, icy float32 = text.RuneMap[r].Texcoords()
 		xy := text.Texcoords[r]
 		txt.prg.U2f(ctx, txt.uicon, xy[0], xy[1])
 		txt.ibuf.Draw(ctx, txt.prg, gl.TRIANGLES)
 	}
-	// ctx.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 }
 
 type Material struct {
 	Box
 
+	Drawer glutil.DrawerFunc
+
 	col4, col8, col12 int
+
+	hidden bool
 
 	BehaviorFlags Behavior
 
@@ -275,6 +270,8 @@ func (mtrl *Material) Bind(lpro *simplex.Program) {
 
 func (mtrl *Material) World() *f32.Mat4 { return &mtrl.world }
 
+func (mtrl *Material) Hidden() bool { return mtrl.hidden }
+
 // TODO seems to slow down goimport ...
 var shdr, shdg, shdb, shda = BlueGrey900.RGBA()
 
@@ -293,6 +290,10 @@ func max(a, b float32) float32 {
 }
 
 func (mtrl *Material) Draw(ctx gl.Context, view, proj f32.Mat4) {
+	if mtrl.hidden {
+		return
+	}
+
 	if mtrl.BehaviorFlags&DescriptorRaised == DescriptorRaised {
 		// provide larger world mat for shadows to draw within
 		m := mtrl.world
@@ -382,6 +383,10 @@ func (mtrl *Material) Draw(ctx gl.Context, view, proj f32.Mat4) {
 	// draw text
 	mtrl.mtext.Texture = mtrl.GlyphTexture
 	mtrl.mtext.Draw(ctx, mtrl.text, mtrl.world, view, proj)
+
+	if mtrl.Drawer != nil {
+		mtrl.Drawer(ctx, view, proj)
+	}
 }
 
 func (mtrl *Material) M() *Material { return mtrl }
@@ -398,12 +403,14 @@ func (mtrl *Material) Constraints(env *Environment) []simplex.Constraint {
 type Button struct {
 	*Material
 	OnPress func()
+	OnTouch func(touch.Event)
 }
 
 type FloatingActionButton struct {
 	*Material
 	Mini    bool
 	OnPress func()
+	OnTouch func(touch.Event)
 }
 
 func (fab *FloatingActionButton) Constraints(env *Environment) []simplex.Constraint {
@@ -482,4 +489,99 @@ func (tb *Toolbar) Constraints(env *Environment) []simplex.Constraint {
 
 type NavDrawer struct {
 	*Material
+}
+
+type Menu struct {
+	*Material
+	selected int
+	actions  []*Button
+}
+
+func (mu *Menu) AddAction(btn *Button) {
+	btn.BehaviorFlags = DescriptorFlat
+	btn.SetIconColor(Black)
+	btn.hidden = mu.hidden
+	mu.actions = append(mu.actions, btn)
+}
+
+func (mu *Menu) ShowAt(m *f32.Mat4) {
+	x := mu.Box.world[0][3]
+	y := mu.Box.world[1][3]
+	mu.Box.world[0][3] = m[0][3]
+	mu.Box.world[1][3] = m[1][3] + m[1][1] - mu.Box.world[1][1]
+	dx := mu.Box.world[0][3] - x
+	dy := mu.Box.world[1][3] - y
+	for _, btn := range mu.actions {
+		btn.Box.world[0][3] += dx
+		btn.Box.world[1][3] += dy
+	}
+	mu.Show()
+}
+
+func (mu *Menu) Show() {
+	go func() {
+		h := mu.Box.world[1][1]
+		y := mu.Box.world[1][3]
+		anim := Animation{
+			Sig: ExpSig,
+			Dur: 300 * time.Millisecond,
+			Start: func() {
+				mu.Box.world[1][1] = 0
+				mu.Box.world[1][3] = y + h
+				mu.hidden = false
+				for _, btn := range mu.actions {
+					btn.hidden = false
+				}
+			},
+			Interp: func(dt float32) {
+				mu.Box.world[1][1] = h * dt
+				mu.Box.world[1][3] = (y + h) - h*dt
+			},
+			End: func() {
+				mu.Box.world[1][1] = h
+				mu.Box.world[1][3] = y
+			},
+		}
+		anim.Do()
+	}()
+}
+
+func (mu *Menu) Hide() {
+	h := mu.Box.world[1][1]
+	y := mu.Box.world[1][3]
+	Animation{
+		Sig: ExpSig,
+		Dur: 200 * time.Millisecond,
+		Interp: func(dt float32) {
+			mu.Box.world[1][1] = h * (1 - dt)
+			mu.Box.world[1][3] = (y + h) - h*(1-dt)
+		},
+		End: func() {
+			mu.hidden = true
+			for _, btn := range mu.actions {
+				btn.hidden = true
+			}
+			mu.Box.world[1][1] = h
+			mu.Box.world[1][3] = y
+		},
+	}.Do()
+}
+
+func (mu *Menu) Constraints(env *Environment) []simplex.Constraint {
+	cns := []simplex.Constraint{
+		mu.Width(Dp(100).Px()), mu.Z(8),
+		mu.StartIn(env.Box, env.Grid.Margin), mu.TopIn(env.Box, env.Grid.Margin),
+	}
+
+	for i, btn := range mu.actions {
+		cns = append(cns, btn.Width(Dp(100).Px()), btn.Height(Dp(16).Px()), btn.Z(9), btn.StartIn(mu.Box, Dp(16).Px()))
+		if i == 0 {
+			cns = append(cns, btn.TopIn(mu.Box, env.Grid.Gutter))
+		} else {
+			cns = append(cns, btn.Below(mu.actions[i-1].Box, Dp(20).Px()))
+		}
+	}
+	cns = append(cns, mu.AlignBottoms(mu.actions[len(mu.actions)-1].Box, Dp(20).Px()))
+
+	return cns
 }

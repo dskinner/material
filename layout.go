@@ -86,6 +86,14 @@ func (a Box) Above(b Box, by float32) simplex.Constraint {
 	return simplex.Constrain(simplex.Coef{1, a.b}, simplex.Coef{-1, b.t}).GreaterEq(by)
 }
 
+func (a Box) AlignBottoms(b Box, by float32) simplex.Constraint {
+	return simplex.Constrain(simplex.Coef{1, b.b}, simplex.Coef{-1, a.b}).GreaterEq(by)
+}
+
+func (a Box) AlignTops(b Box, by float32) simplex.Constraint {
+	return simplex.Constrain(simplex.Coef{1, b.t}, simplex.Coef{-1, a.t}).GreaterEq(by)
+}
+
 func (a Box) Bounds(l, r, b, t float32) []simplex.Constraint {
 	return []simplex.Constraint{
 		simplex.Constrain(simplex.Coef{1, a.l}).GreaterEq(l),

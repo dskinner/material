@@ -60,12 +60,12 @@ func (gd *Grid) StepSize() float32 {
 func NewGrid() *Grid {
 	// by breakpoints
 	g := &Grid{Margin: 24, Gutter: 24, Columns: 12}
-	if windowSize.WidthPx < 600 || windowSize.HeightPx < 600 {
+	if windowSize.WidthPx < int(Dp(600).Px()) || windowSize.HeightPx < int(Dp(600).Px()) {
 		g.Margin, g.Gutter = 16, 16 // TODO dp vals
 	}
-	if windowSize.WidthPx < 480 {
+	if windowSize.WidthPx < int(Dp(480).Px()) {
 		g.Columns = 4
-	} else if windowSize.WidthPx < 720 {
+	} else if windowSize.WidthPx < int(Dp(720).Px()) {
 		g.Columns = 8
 	}
 	return g

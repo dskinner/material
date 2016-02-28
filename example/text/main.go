@@ -76,10 +76,13 @@ func onStart(ctx gl.Context) {
 	t12.SetTextColor(material.White)
 	t12.SetText("Hello go 12px")
 	t12.BehaviorFlags = material.DescriptorFlat
+}
 
+func onLayout(sz size.Event) {
+	env.SetOrtho(sz)
 	env.StartLayout()
 	env.AddConstraints(
-		t112.Width(1290), t112.Height(112), t112.Z(1), t112.StartIn(env.Box, env.Grid.Gutter), t112.TopIn(env.Box, env.Grid.Gutter),
+		t112.Width(1290), t112.Height(250), t112.Z(1), t112.StartIn(env.Box, env.Grid.Gutter), t112.TopIn(env.Box, env.Grid.Gutter),
 		t56.Width(620), t56.Height(56), t56.Z(1), t56.StartIn(env.Box, env.Grid.Gutter), t56.Below(t112.Box, env.Grid.Gutter),
 		t45.Width(500), t45.Height(45), t45.Z(1), t45.StartIn(env.Box, env.Grid.Gutter), t45.Below(t56.Box, env.Grid.Gutter),
 		t34.Width(380), t34.Height(34), t34.Z(1), t34.StartIn(env.Box, env.Grid.Gutter), t34.Below(t45.Box, env.Grid.Gutter),
@@ -89,14 +92,11 @@ func onStart(ctx gl.Context) {
 		t14.Width(155), t14.Height(14), t14.Z(1), t14.StartIn(env.Box, env.Grid.Gutter), t14.Below(t16.Box, env.Grid.Gutter),
 		t12.Width(135), t12.Height(12), t12.Z(1), t12.StartIn(env.Box, env.Grid.Gutter), t12.Below(t14.Box, env.Grid.Gutter),
 	)
-
 	env.FinishLayout()
 }
 
-var cr, cg, cb, ca = material.BlueGrey500.RGBA()
-
 func onPaint(ctx gl.Context) {
-	ctx.ClearColor(cr, cg, cb, ca)
+	ctx.ClearColor(material.BlueGrey500.RGBA())
 	ctx.Clear(gl.COLOR_BUFFER_BIT)
 	env.Draw(ctx)
 }
@@ -115,7 +115,11 @@ func main() {
 					glctx = nil
 				}
 			case size.Event:
-				env.SetOrtho(ev)
+				if glctx == nil {
+					a.Send(ev) // republish event until onStart is called
+				} else {
+					onLayout(ev)
+				}
 			case paint.Event:
 				if glctx != nil {
 					onPaint(glctx)

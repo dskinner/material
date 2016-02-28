@@ -18,8 +18,6 @@ import (
 	"golang.org/x/mobile/gl"
 )
 
-var windowSize size.Event
-
 type Dp float32
 
 func (dp Dp) Px() float32 {
@@ -37,6 +35,7 @@ type Sheet interface {
 	Contains(x, y float32) bool
 	M() *Material
 	Constraints(*Environment) []simplex.Constraint
+	Hidden() bool
 }
 
 type byZ []Sheet
@@ -64,6 +63,10 @@ type Environment struct {
 	watchQuit  chan bool
 }
 
+func (env *Environment) Size() size.Event {
+	return windowSize
+}
+
 func (env *Environment) WatchShaders() {
 	env.watchEvent, env.watchQuit = watchShaders()
 }
@@ -83,7 +86,7 @@ func (env *Environment) LoadIcons(ctx gl.Context) {
 	// png.Encode(f, dst)
 
 	env.icons.Create(ctx)
-	env.icons.Bind(ctx, DefaultFilter, DefaultWrap)
+	env.icons.Bind(ctx, nearestFilter, DefaultWrap)
 	env.icons.Update(ctx, 0, 2048, 2048, dst.Pix)
 }
 
@@ -92,14 +95,9 @@ func (env *Environment) LoadGlyphs(ctx gl.Context) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	r := image.Rect(0, 0, 512, 512)
-	dst := image.NewNRGBA(r)
-	draw.Draw(dst, r, src, image.ZP, draw.Src)
-
 	env.glyphs.Create(ctx)
 	env.glyphs.Bind(ctx, nearestFilter, DefaultWrap)
-	env.glyphs.Update(ctx, 0, 512, 512, dst.Pix)
+	env.glyphs.Update(ctx, 0, 512, 512, src.(*image.NRGBA).Pix)
 	ctx.GenerateMipmap(gl.TEXTURE_2D)
 }
 
@@ -119,6 +117,8 @@ func (env *Environment) SetOrtho(sz size.Event) {
 	glutil.Ortho(&env.proj, 0, float32(sz.WidthPx), 0, float32(sz.HeightPx), 1, 10000)
 	env.View.Translate(&env.View, 0, 0, -5000)
 }
+
+func (env *Environment) Palette() Palette { return env.plt }
 
 func (env *Environment) SetPalette(plt Palette) {
 	env.plt = plt
@@ -186,15 +186,21 @@ func (env *Environment) Touch(ev touch.Event) bool {
 	ex, ey := ev.X, float32(windowSize.HeightPx)-ev.Y
 	for i := len(env.sheets) - 1; i >= 0; i-- {
 		sheet := env.sheets[i]
-		if sheet.Contains(ex, ey) {
+		if !sheet.Hidden() && sheet.Contains(ex, ey) {
 			switch sheet := sheet.(type) {
 			case *Button:
 				if ev.Type == touch.TypeBegin && sheet.OnPress != nil {
 					sheet.OnPress()
 				}
+				if sheet.OnTouch != nil {
+					sheet.OnTouch(ev)
+				}
 			case *FloatingActionButton:
 				if ev.Type == touch.TypeBegin && sheet.OnPress != nil {
 					sheet.OnPress()
+				}
+				if sheet.OnTouch != nil {
+					sheet.OnTouch(ev)
 				}
 			default:
 				log.Printf("Unhandled type %T\n", sheet)
@@ -239,6 +245,22 @@ func (env *Environment) NewToolbar(ctx gl.Context) *Toolbar {
 	bar.Nav.BehaviorFlags = DescriptorFlat
 	bar.Nav.SetIcon(icon.NavigationMenu)
 	bar.Nav.SetIconColor(Black)
+	bar.mtext.worldfn = func(m *f32.Mat4) {
+		const scale = 0.45
+		h := m[1][1]
+		m[0][3] += Dp(72).Px()
+		m[1][1] *= scale
+		m[1][3] += (h - m[1][1]) / 2.3
+	}
 	env.sheets = append(env.sheets, bar)
 	return bar
+}
+
+func (env *Environment) NewMenu(ctx gl.Context) *Menu {
+	mu := &Menu{Material: New(ctx, Black)}
+	mu.SetColor(env.plt.Light)
+	mu.BehaviorFlags |= VisibilityTemporary
+	mu.hidden = true
+	env.sheets = append(env.sheets, mu)
+	return mu
 }

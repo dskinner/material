@@ -35,24 +35,13 @@ func Perspective(m *f32.Mat4, l, r float32, b, t float32) {
 }
 
 type Drawer interface {
-	DrawViewProj(ctx gl.Context, view, proj f32.Mat4)
-	DrawProj(ctx gl.Context, proj f32.Mat4)
-	Draw(ctx gl.Context)
+	Draw(ctx gl.Context, view, proj f32.Mat4)
 }
 
 type DrawerFunc func(ctx gl.Context, view, proj f32.Mat4)
 
-func (fn DrawerFunc) DrawViewProj(ctx gl.Context, view, proj f32.Mat4) {
+func (fn DrawerFunc) Draw(ctx gl.Context, view, proj f32.Mat4) {
 	fn(ctx, view, proj)
-}
-
-func (fn DrawerFunc) DrawProj(ctx gl.Context, proj f32.Mat4) {
-	fn(ctx, ident, proj)
-}
-
-func (fn DrawerFunc) Draw(ctx gl.Context) {
-	// fn(ctx, scn.View, sc)
-	panic("asdf")
 }
 
 type FloatBuffer interface {
