@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest
+	xmlns:android="http://schemas.android.com/apk/res/android"
+	package="cc.dasa.material.example.boxes"
+	android:versionCode="1"
+	android:versionName="1.0">
+
+	<application
+			android:label="Material Boxes"
+			android:debuggable="true">
+
+		<activity
+				android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+				android:name="org.golang.app.GoNativeActivity"
+				android:label="Material Boxes"
+				android:screenOrientation="landscape">
+			<meta-data android:name="android.app.lib_name" android:value="boxes" />
+			<intent-filter>
+				<action android:name="android.intent.action.MAIN" />
+				<category android:name="android.intent.category.LAUNCHER" />
+			</intent-filter>
+		</activity>
+	</application>
+</manifest>

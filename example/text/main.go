@@ -1,6 +1,9 @@
 package main
 
 import (
+	"log"
+	"time"
+
 	"dasa.cc/material"
 	"golang.org/x/mobile/app"
 	"golang.org/x/mobile/event/lifecycle"
@@ -30,6 +33,7 @@ func onStart(ctx gl.Context) {
 	ctx.Enable(gl.CULL_FACE)
 	ctx.CullFace(gl.BACK)
 
+	env.Load(ctx)
 	env.LoadGlyphs(ctx)
 
 	t112 = env.NewButton(ctx)
@@ -82,7 +86,7 @@ func onLayout(sz size.Event) {
 	env.SetOrtho(sz)
 	env.StartLayout()
 	env.AddConstraints(
-		t112.Width(1290), t112.Height(250), t112.Z(1), t112.StartIn(env.Box, env.Grid.Gutter), t112.TopIn(env.Box, env.Grid.Gutter),
+		t112.Width(1290), t112.Height(112), t112.Z(1), t112.StartIn(env.Box, env.Grid.Gutter), t112.TopIn(env.Box, env.Grid.Gutter),
 		t56.Width(620), t56.Height(56), t56.Z(1), t56.StartIn(env.Box, env.Grid.Gutter), t56.Below(t112.Box, env.Grid.Gutter),
 		t45.Width(500), t45.Height(45), t45.Z(1), t45.StartIn(env.Box, env.Grid.Gutter), t45.Below(t56.Box, env.Grid.Gutter),
 		t34.Width(380), t34.Height(34), t34.Z(1), t34.StartIn(env.Box, env.Grid.Gutter), t34.Below(t45.Box, env.Grid.Gutter),
@@ -95,10 +99,16 @@ func onLayout(sz size.Event) {
 	env.FinishLayout()
 }
 
+var lastpaint time.Time
+var fps int
+
 func onPaint(ctx gl.Context) {
 	ctx.ClearColor(material.BlueGrey500.RGBA())
 	ctx.Clear(gl.COLOR_BUFFER_BIT)
 	env.Draw(ctx)
+	now := time.Now()
+	fps = int(time.Second / now.Sub(lastpaint))
+	lastpaint = now
 }
 
 func main() {
@@ -109,6 +119,11 @@ func main() {
 			case lifecycle.Event:
 				switch ev.Crosses(lifecycle.StageVisible) {
 				case lifecycle.CrossOn:
+					go func() {
+						for range time.Tick(time.Second) {
+							log.Printf("fps=%-4v\n", fps)
+						}
+					}()
 					glctx = ev.DrawContext.(gl.Context)
 					onStart(glctx)
 				case lifecycle.CrossOff:

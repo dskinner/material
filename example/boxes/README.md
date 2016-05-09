@@ -1,10 +1,9 @@
-## text
+## boxes
 
-this example requires the following assets
+this example is used for debug purposes and requires the following assets
 
 ```
 mkdir -p assets/material
 cp ../../assets/environment-frag.glsl assets/material/
 cp ../../assets/environment-vert.glsl assets/material/
-curl -o assets/material/source-code-pro-glyphs-sdf.png http://i.imgur.com/TlDRufb.png
 ```

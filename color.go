@@ -12,6 +12,15 @@ func (c Color) RGBA() (r, g, b, a float32) {
 	return
 }
 
+func (c Color) RGBA64() (r, g, b, a float64) {
+	ur := uint8(c >> 24)
+	ug := uint8(c >> 16)
+	ub := uint8(c >> 8)
+	ua := uint8(c)
+	r, g, b, a = float64(ur)/255, float64(ug)/255, float64(ub)/255, float64(ua)/255
+	return
+}
+
 func (c Color) WithAlpha(a uint8) Color {
 	return c ^ Color(255-a)
 }

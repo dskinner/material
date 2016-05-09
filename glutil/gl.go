@@ -271,6 +271,14 @@ func (tex Texture) Update(ctx gl.Context, lvl int, width int, height int, data [
 	}
 }
 
+// TODO incorporate into Update, see FloatBuffer and UintBuffer
+func (tex Texture) Sub(ctx gl.Context, lvl int, width int, height int, data []byte) {
+	ctx.TexSubImage2D(gl.TEXTURE_2D, lvl, 0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, data)
+	if lvl > 0 {
+		ctx.GenerateMipmap(gl.TEXTURE_2D)
+	}
+}
+
 func TextureDef(lvl int, width, height int, format gl.Enum, data []byte) func(gl.Context, Texture) {
 	return func(ctx gl.Context, tex Texture) {
 		ctx.TexImage2D(gl.TEXTURE_2D, lvl, width, height, format, gl.UNSIGNED_BYTE, data)

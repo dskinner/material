@@ -91,6 +91,7 @@ func (gd *Grid) draw(ctx gl.Context, view, proj f32.Mat4) {
 			gd.debug.world[0][0] = gd.Gutter
 			gd.debug.world[0][3] = gd.Margin + float32(i)*step - gd.Gutter/2.0
 		}
-		gd.debug.Draw(ctx, view, proj)
+		// TODO add to environment
+		// gd.debug.Draw(ctx, view, proj)
 	}
 }
