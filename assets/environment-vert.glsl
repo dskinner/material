@@ -21,7 +21,11 @@ varying vec4 vdist;
 varying vec4 vvertex;
 
 void main() {
-	gl_Position = vec4(vertex.xyz, 1.0) * view * proj;
+	vec4 vert = vec4(vertex.xyz, 1.0);
+	if (vert.z < 0.0) {
+		vert.z = 0.0;
+	}
+	gl_Position = vert * view * proj;
 	vcolor = color;
 	vtexcoord = texcoord;
 	vvertex = vertex;

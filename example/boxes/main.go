@@ -49,6 +49,7 @@ func onStart(ctx gl.Context) {
 
 	for i := range boxes {
 		boxes[i] = env.NewMaterial(ctx)
+		boxes[i].SetColor(material.BlueGrey200)
 	}
 }
 
@@ -119,7 +120,7 @@ func onLayout(sz size.Event) {
 
 	func() {
 		m := boxes[4].World()
-		x, y := m[0][3], m[1][3]
+		x, y, z := m[0][3], m[1][3], m[2][3]
 		w, h := m[0][0], m[1][1]
 		quits = append(quits, material.Animation{
 			Sig:  sig,
@@ -139,11 +140,20 @@ func onLayout(sz size.Event) {
 				m[1][3] = y - 200*dt/2
 			},
 		}.Do())
+		quits = append(quits, material.Animation{
+			Sig:  sig,
+			Dur:  8000 * time.Millisecond,
+			Loop: true,
+			Interp: func(dt float32) {
+				m[2][3] = z + 20*dt
+			},
+		}.Do())
 	}()
 
 	func() {
 		m := boxes[6].World()
 		w, h := m[0][0], m[1][1]
+		z := m[2][3]
 		quits = append(quits, material.Animation{
 			Sig:  sig,
 			Dur:  4000 * time.Millisecond,
@@ -152,7 +162,27 @@ func onLayout(sz size.Event) {
 				boxes[6].Roundness = 50 * (1 - dt)
 				m[0][0] = w + 200*dt
 				m[1][1] = h + 200*dt
-				m[2][3] = 7 + 2*dt
+			},
+		}.Do())
+		quits = append(quits, material.Animation{
+			Sig:  sig,
+			Dur:  8000 * time.Millisecond,
+			Loop: true,
+			Interp: func(dt float32) {
+				m[2][3] = z + 7*dt
+			},
+		}.Do())
+	}()
+
+	func() {
+		m := boxes[8].World()
+		w := m[0][0]
+		quits = append(quits, material.Animation{
+			Sig:  sig,
+			Dur:  2000 * time.Millisecond,
+			Loop: true,
+			Interp: func(dt float32) {
+				boxes[8].Roundness = (w / 2) * dt
 			},
 		}.Do())
 	}()

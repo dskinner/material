@@ -1,6 +1,7 @@
 #version 100
 #define onesqrt2 0.70710678118
 #define sqrt2 1.41421356237
+#define pi 3.14159265359
 precision mediump float;
 
 const float hglyph = 72.0;
@@ -103,22 +104,40 @@ void main() {
     } else {
       gl_FragColor = sampleGlyph();
     }
-	} else if (vvertex.z == 0.0) {
-    if (roundness < 10.0) {
-      roundness = 10.0;
+	} else if (vvertex.z <= 0.0) {
+    if (roundness < 8.0) {
+      roundness = 8.0;
     }
+
+    // TODO ellipsis are being over-rounded resulting in a distortion
+    // in the shadow. The distortion isn't very noticable unless drawing
+    // only shadows, but this does affect outline of material making it
+    // more difficult to see material edges. Clamping roundness results
+    // in a strange distortion when animating roundness and the cause is
+    // not currently clear.
+    //
+    // At the same time, the distortion looks better for different cases.
+    roundness += -vvertex.z;
+    // if (roundness > vdist.z/2.0) {
+      // roundness = vdist.z/2.0;
+    // }
+
 		gl_FragColor = shadowColor;
-    // gl_FragColor = vec4(0, 0, 0, 1);
-    // gl_FragColor.a = shade(vdist.xy, roundness);
-    gl_FragColor.a = smoothstep(0.0, 1.0, shade(vdist.xy, roundness));
-    gl_FragColor.a *= 0.25 + roundness/vdist.z/0.5;
-    gl_FragColor.a *= 1.5;
 
-    //debug
+    // maps roundness to 1 - [0..0.66] and helps shadows cast by rectangles and ellipses
+    // look similar at the same z index.
+    float e = 1.0 - (vvertex.w/vdist.z/0.75);
+
+    gl_FragColor.a = smoothstep(0.0, e, shade(vdist.xy, roundness));
+    vec2 n = abs(vdist.xy*2.0 - 1.0);
+    n = n*n*n*n;
+    n = 1.0-n;
+
+    // reduce alpha/strength as z-index increases
+    float f = 1.0 + (-vvertex.z*0.1);
+
+    gl_FragColor.a *= n.x*n.y/f;
     // gl_FragColor.a *= 10.0;
-
-    // gl_FragColor.a = clamp(smoothstep(0.0, 1.0, shade(vdist.xy, roundness)), 0.0, 0.5);
-    // gl_FragColor.a = clamp(roundness/vdist.z/0.05, 1.0, 4.0)*smoothstep(0.0, 1.0, shade(vdist.xy, roundness));
   } else {
     if (shouldcolor(vdist.xy, roundness)) {
       gl_FragColor = vcolor;

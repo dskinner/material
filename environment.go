@@ -244,23 +244,23 @@ func (env *Environment) Draw(ctx gl.Context) {
 			// is an ellipse/circle. mapping this range to [1..3]*z provides a decent
 			// default for resizing ellipses shadows for visibility given current
 			// algorithm in shader.
-			s := (1 + 6*(r/w)) + z // TODO this needs harder limits based on size of material
-			// s := z
+			// s := (1 + 6*(r/w)) + z // TODO this needs harder limits based on size of material
+			s := 4 + z
 
-			min := h
-			if w < h {
-				min = w
-			}
-			_ = min
+			// min := h
+			// if w < h {
+			// min = w
+			// }
+			// _ = min
 
-			s += min / 32
+			// s += min / 32
 
 			ss := 2 * s
 			// TODO how should roundness scale
 			rr := r * ((w + ss) / w)
 			// rr += s
 
-			rr += min / 8
+			// rr += min / 8
 
 			// clamp rr for circular shadows
 			if rr > (w+ss)/2 {
@@ -281,10 +281,10 @@ func (env *Environment) Draw(ctx gl.Context) {
 				n, n+3, n+2,
 			)
 			env.verts = append(env.verts,
-				x, y, 0, rr, // v0
-				x, y+h, 0, rr, // v1
-				x+w, y+h, 0, rr, // v2
-				x+w, y, 0, rr, // v3
+				x, y, -z, rr, // v0
+				x, y+h, -z, rr, // v1
+				x+w, y+h, -z, rr, // v2
+				x+w, y, -z, rr, // v3
 			)
 			env.colors = append(env.colors,
 				m.cr, m.cg, m.cb, m.ca,
