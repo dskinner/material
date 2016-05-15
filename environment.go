@@ -4,6 +4,7 @@ import (
 	"image"
 	"log"
 	"sort"
+	"time"
 
 	"image/draw"
 	_ "image/png"
@@ -69,15 +70,18 @@ type Environment struct {
 
 	attribs struct {
 		vertex, color, dist, texcoord gl.Attrib
+		touch                         gl.Attrib
 	}
 
 	buffers struct {
 		verts, colors, dists, texcoords glutil.FloatBuffer
 		indices                         glutil.UintBuffer
+		touches                         glutil.FloatBuffer
 	}
 
 	verts, colors, dists, texcoords []float32
 	indices                         []uint32
+	touches                         []float32
 
 	watchEvent chan string
 	watchQuit  chan bool
@@ -138,12 +142,31 @@ func (env *Environment) Load(ctx gl.Context) {
 	env.attribs.color = env.prg.Attrib(ctx, "color")
 	env.attribs.dist = env.prg.Attrib(ctx, "dist")
 	env.attribs.texcoord = env.prg.Attrib(ctx, "texcoord")
+	env.attribs.touch = env.prg.Attrib(ctx, "touch")
 
 	env.buffers.indices = glutil.NewUintBuffer(ctx, []uint32{}, gl.STREAM_DRAW)
 	env.buffers.verts = glutil.NewFloatBuffer(ctx, []float32{}, gl.STREAM_DRAW)
 	env.buffers.colors = glutil.NewFloatBuffer(ctx, []float32{}, gl.STREAM_DRAW)
 	env.buffers.dists = glutil.NewFloatBuffer(ctx, []float32{}, gl.STREAM_DRAW)
 	env.buffers.texcoords = glutil.NewFloatBuffer(ctx, []float32{}, gl.STREAM_DRAW)
+	env.buffers.touches = glutil.NewFloatBuffer(ctx, []float32{}, gl.STREAM_DRAW)
+}
+
+func (env *Environment) Unload(ctx gl.Context) {
+	env.prg.Delete(ctx)
+	env.buffers.indices.Delete(ctx)
+	env.buffers.verts.Delete(ctx)
+	env.buffers.colors.Delete(ctx)
+	env.buffers.dists.Delete(ctx)
+	env.buffers.texcoords.Delete(ctx)
+	env.buffers.touches.Delete(ctx)
+	if env.glyphs.Value != 0 {
+		env.glyphs.Delete(ctx)
+	}
+	if env.icons.Value != 0 {
+		env.icons.Delete(ctx)
+	}
+	env.sheets = env.sheets[:0]
 }
 
 func (env *Environment) SetPerspective(sz size.Event) {
@@ -221,6 +244,7 @@ func (env *Environment) Draw(ctx gl.Context) {
 	env.colors = env.colors[:0]
 	env.dists = env.dists[:0]
 	env.texcoords = env.texcoords[:0]
+	env.touches = env.touches[:0]
 
 	for i, sheet := range env.sheets {
 		m := sheet.M()
@@ -304,6 +328,12 @@ func (env *Environment) Draw(ctx gl.Context) {
 				-1, -1, -1, -1,
 				-1, -1, -1, -1,
 			)
+			env.touches = append(env.touches,
+				0, 0, 2, 0,
+				0, 0, 2, 0,
+				0, 0, 2, 0,
+				0, 0, 2, 0,
+			)
 		}
 		// *** end shadow layer
 		x, y, z = m.world[0][3], m.world[1][3], m.world[2][3]
@@ -364,6 +394,20 @@ func (env *Environment) Draw(ctx gl.Context) {
 			-1, -1, -1, -1,
 		)
 
+		ex, ey := m.touch.x, m.touch.y
+		es := float32(m.touch.state)
+		ed := float32(time.Since(m.touch.start) / time.Millisecond)
+		env.touches = append(env.touches,
+			ex, ey, es, ed,
+			ex, ey, es, ed,
+			ex, ey, es, ed,
+			ex, ey, es, ed,
+			ex, ey, es, ed,
+			ex, ey, es, ed,
+			ex, ey, es, ed,
+			ex, ey, es, ed,
+		)
+
 		if m.icon.x != -1 {
 			n = uint32(len(env.verts)) / 4
 			env.indices = append(env.indices,
@@ -394,6 +438,12 @@ func (env *Environment) Draw(ctx gl.Context) {
 				ix, iy, 1, 0,
 				ix+s, iy, 1, 0,
 				ix+s, iy+s, 1, 0,
+			)
+			env.touches = append(env.touches,
+				0, 0, 2, 0,
+				0, 0, 2, 0,
+				0, 0, 2, 0,
+				0, 0, 2, 0,
 			)
 		}
 
@@ -428,6 +478,12 @@ func (env *Environment) Draw(ctx gl.Context) {
 				1.0, 1.0, tw, th, // v2 right, top
 				1.0, 0.0, tw, th, // v3 right, bottom
 			)
+			env.touches = append(env.touches,
+				0, 0, 2, 0,
+				0, 0, 2, 0,
+				0, 0, 2, 0,
+				0, 0, 2, 0,
+			)
 
 			gxy := text.Texcoords[r]
 			gx, gy := gxy[0], gxy[1]
@@ -451,6 +507,10 @@ func (env *Environment) Draw(ctx gl.Context) {
 	env.buffers.texcoords.Bind(ctx)
 	env.buffers.texcoords.Update(ctx, env.texcoords)
 	env.prg.Pointer(ctx, env.attribs.texcoord, 4)
+
+	env.buffers.touches.Bind(ctx)
+	env.buffers.touches.Update(ctx, env.touches)
+	env.prg.Pointer(ctx, env.attribs.touch, 4)
 
 	env.buffers.dists.Bind(ctx)
 	env.buffers.dists.Update(ctx, env.dists)
@@ -488,6 +548,13 @@ func (env *Environment) Touch(ev touch.Event) bool {
 	for i := len(env.sheets) - 1; i >= 0; i-- {
 		sheet := env.sheets[i]
 		if !sheet.Hidden() && sheet.Contains(ex, ey) {
+			mtrl := sheet.M()
+			mtrl.touch.state = ev.Type
+			mtrl.touch.x, mtrl.touch.y = mtrl.RelativeCoords(ex, ey)
+			if ev.Type == touch.TypeBegin {
+				mtrl.touch.start = time.Now()
+			}
+
 			switch sheet := sheet.(type) {
 			case *Button:
 				if ev.Type == touch.TypeBegin && sheet.OnPress != nil {

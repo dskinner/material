@@ -48,6 +48,7 @@ type FloatBuffer interface {
 	Bind(gl.Context)
 	Update(gl.Context, []float32)
 	Draw(gl.Context, Program, gl.Enum)
+	Delete(gl.Context)
 }
 
 type floatBuffer struct {
@@ -90,10 +91,15 @@ func (buf *floatBuffer) Draw(ctx gl.Context, prg Program, mode gl.Enum) {
 	ctx.DrawArrays(mode, 0, buf.count)
 }
 
+func (buf *floatBuffer) Delete(ctx gl.Context) {
+	ctx.DeleteBuffer(buf.Buffer)
+}
+
 type UintBuffer interface {
 	Bind(gl.Context)
 	Update(gl.Context, []uint32)
 	Draw(gl.Context, Program, gl.Enum)
+	Delete(gl.Context)
 }
 
 type uintBuffer struct {
@@ -133,6 +139,10 @@ func (buf *uintBuffer) Update(ctx gl.Context, data []uint32) {
 
 func (buf *uintBuffer) Draw(ctx gl.Context, prg Program, mode gl.Enum) {
 	ctx.DrawElements(mode, buf.count, gl.UNSIGNED_INT, 0)
+}
+
+func (buf *uintBuffer) Delete(ctx gl.Context) {
+	ctx.DeleteBuffer(buf.Buffer)
 }
 
 var (

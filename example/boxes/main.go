@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -10,6 +11,7 @@ import (
 	"golang.org/x/mobile/event/lifecycle"
 	"golang.org/x/mobile/event/paint"
 	"golang.org/x/mobile/event/size"
+	"golang.org/x/mobile/event/touch"
 	"golang.org/x/mobile/exp/f32"
 	"golang.org/x/mobile/gl"
 )
@@ -21,13 +23,15 @@ var (
 	quits []chan struct{}
 )
 
-func init() {
+func onStart(ctx gl.Context) {
 	env.SetPalette(material.Palette{
 		Primary: material.BlueGrey500,
 		Dark:    material.BlueGrey700,
 		Light:   material.BlueGrey100,
 		Accent:  material.DeepOrangeA200,
 	})
+
+	quits = []chan struct{}{}
 
 	sig = make(snd.Discrete, len(material.ExpSig))
 	copy(sig, material.ExpSig)
@@ -36,9 +40,7 @@ func init() {
 	rsig.UnitInverse()
 	sig = append(sig, rsig...)
 	sig.NormalizeRange(0, 1)
-}
 
-func onStart(ctx gl.Context) {
 	ctx.Enable(gl.BLEND)
 	ctx.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 
@@ -46,10 +48,21 @@ func onStart(ctx gl.Context) {
 	ctx.CullFace(gl.BACK)
 
 	env.Load(ctx)
+	env.LoadGlyphs(ctx)
 
 	for i := range boxes {
 		boxes[i] = env.NewMaterial(ctx)
 		boxes[i].SetColor(material.BlueGrey200)
+	}
+}
+
+func onStop(ctx gl.Context) {
+	env.Unload(ctx)
+	for i := range boxes {
+		boxes[i] = nil
+	}
+	for _, q := range quits {
+		q <- struct{}{}
 	}
 }
 
@@ -78,6 +91,7 @@ func onLayout(sz size.Event) {
 	for _, q := range quits {
 		q <- struct{}{}
 	}
+	quits = quits[:0]
 
 	log.Println("starting layout")
 	t := time.Now()
@@ -129,6 +143,8 @@ func onLayout(sz size.Event) {
 			Interp: func(dt float32) {
 				m[0][0] = w + 200*dt
 				m[0][3] = x - 200*dt/2
+				boxes[4].SetText(fmt.Sprintf("w %.0f h %.0f z %.0f", m[0][0], m[1][1], m[2][3]))
+				boxes[4].SetTextHeight(material.Dp(16).Px())
 			},
 		}.Do())
 		quits = append(quits, material.Animation{
@@ -208,19 +224,29 @@ func onPaint(ctx gl.Context) {
 func main() {
 	app.Main(func(a app.App) {
 		var glctx gl.Context
+		var ticker *time.Ticker
 		for ev := range a.Events() {
 			switch ev := a.Filter(ev).(type) {
 			case lifecycle.Event:
 				switch ev.Crosses(lifecycle.StageVisible) {
 				case lifecycle.CrossOn:
+					if ticker != nil {
+						ticker.Stop()
+					}
+					ticker = time.NewTicker(time.Second)
 					go func() {
-						for range time.Tick(time.Second) {
+						for range ticker.C {
 							log.Printf("fps=%-4v\n", fps)
 						}
 					}()
 					glctx = ev.DrawContext.(gl.Context)
 					onStart(glctx)
+					a.Send(paint.Event{})
 				case lifecycle.CrossOff:
+					if ticker != nil {
+						ticker.Stop()
+					}
+					onStop(glctx)
 					glctx = nil
 				}
 			case size.Event:
@@ -230,11 +256,14 @@ func main() {
 					onLayout(ev)
 				}
 			case paint.Event:
-				if glctx != nil {
-					onPaint(glctx)
-					a.Publish()
-					a.Send(paint.Event{})
+				if glctx == nil || ev.External {
+					continue
 				}
+				onPaint(glctx)
+				a.Publish()
+				a.Send(paint.Event{})
+			case touch.Event:
+				env.Touch(ev)
 			}
 		}
 	})

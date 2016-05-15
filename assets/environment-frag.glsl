@@ -2,6 +2,10 @@
 #define onesqrt2 0.70710678118
 #define sqrt2 1.41421356237
 #define pi 3.14159265359
+
+#define touchBegin 0.0
+#define touchMove 1.0
+#define touchEnd 2.0
 precision mediump float;
 
 const float hglyph = 72.0;
@@ -16,6 +20,7 @@ uniform vec4 shadowColor;
 
 varying vec4 vtexcoord;
 varying vec4 vvertex;
+varying vec4 vtouch;
 
 // interpolated distance, and size values
 // x, y is unit value [0..1]
@@ -119,7 +124,7 @@ void main() {
     // At the same time, the distortion looks better for different cases.
     roundness += -vvertex.z;
     // if (roundness > vdist.z/2.0) {
-      // roundness = vdist.z/2.0;
+    // roundness = vdist.z/2.0;
     // }
 
 		gl_FragColor = shadowColor;
@@ -142,6 +147,32 @@ void main() {
     if (shouldcolor(vdist.xy, roundness)) {
       gl_FragColor = vcolor;
       // gl_FragColor.a = 0.0;
+
+      // respond to touch with radial
+      const float dur = 200.0;
+      const float clr = 0.035;
+
+      float since = vtouch.w;
+      vec4 react = vec4(0.0);
+
+      // float d = length(vtouch.xy-vdist.xy);
+      // float d = length(vtouch.xx-vdist.xx); // horizontal sweep
+
+      const float magic = 100.0;
+      float d = length((vtouch.xy*vdist.zw)-(vdist.xy*vdist.zw));
+      d /= magic;
+
+      float t = since/dur;
+      if (d < 2.0*t) {
+        if (t < sqrt2) {
+          react = vec4(clr);
+        } else if (t < pi) {
+          float fac = 1.0 - (t-sqrt2)/(pi-sqrt2);
+          react = vec4(fac*clr);
+        }
+      }
+
+      gl_FragColor += react;
     } else {
       discard;
     }

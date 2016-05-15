@@ -45,6 +45,12 @@ type Material struct {
 
 	IsCircle  bool
 	Roundness float32
+
+	touch struct {
+		state touch.Type
+		x, y  float32
+		start time.Time
+	}
 }
 
 func (mtrl *Material) Span(col4, col8, col12 int) {
@@ -56,6 +62,7 @@ func New(ctx gl.Context, color Color) *Material {
 		BehaviorFlags: DescriptorRaised,
 	}
 	mtrl.icon.x, mtrl.icon.y = -1, -1
+	mtrl.touch.state = touch.TypeEnd
 	mtrl.cr, mtrl.cg, mtrl.cb, mtrl.ca = color.RGBA()
 
 	return mtrl
@@ -99,6 +106,11 @@ func (mtrl *Material) M() *Material { return mtrl }
 func (mtrl *Material) Contains(tx, ty float32) bool {
 	x, y, w, h := mtrl.world[0][3], mtrl.world[1][3], mtrl.world[0][0], mtrl.world[1][1]
 	return x <= tx && tx <= x+w && y <= ty && ty <= y+h
+}
+
+func (mtrl *Material) RelativeCoords(tx, ty float32) (float32, float32) {
+	x, y, w, h := mtrl.world[0][3], mtrl.world[1][3], mtrl.world[0][0], mtrl.world[1][1]
+	return (tx - x) / w, (ty - y) / h
 }
 
 func (mtrl *Material) Constraints(env *Environment) []simplex.Constraint {

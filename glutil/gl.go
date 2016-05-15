@@ -101,13 +101,12 @@ func (prg Program) Use(ctx gl.Context, options ...func(gl.Context, Program)) {
 }
 
 func (prg Program) Mat4(ctx gl.Context, dst gl.Uniform, src f32.Mat4) {
-	m := make([]float32, 16)
-	for i, v := range src {
-		for j, x := range v {
-			m[i*4+j] = x
-		}
-	}
-	ctx.UniformMatrix4fv(dst, m)
+	ctx.UniformMatrix4fv(dst, []float32{
+		src[0][0], src[1][0], src[2][0], src[3][0],
+		src[0][1], src[1][1], src[2][1], src[3][1],
+		src[0][2], src[1][2], src[2][2], src[3][2],
+		src[0][3], src[1][3], src[2][3], src[3][3],
+	})
 }
 
 func (prg Program) U1i(ctx gl.Context, dst gl.Uniform, v int) {
@@ -136,17 +135,17 @@ func (prg Program) Pointer(ctx gl.Context, a gl.Attrib, size int) {
 	ctx.VertexAttribPointer(a, size, gl.FLOAT, false, 0, 0)
 }
 
-func UniformMat4(dst gl.Uniform) func(gl.Context, f32.Mat4) {
-	src := make([]float32, 16)
-	return func(ctx gl.Context, m f32.Mat4) {
-		for i, v := range m {
-			for j, x := range v {
-				src[i*4+j] = x
-			}
-		}
-		ctx.UniformMatrix4fv(dst, src)
-	}
-}
+// func UniformMat4(dst gl.Uniform) func(gl.Context, f32.Mat4) {
+// src := make([]float32, 16)
+// return func(ctx gl.Context, m f32.Mat4) {
+// for i, v := range m {
+// for j, x := range v {
+// src[i*4+j] = x
+// }
+// }
+// ctx.UniformMatrix4fv(dst, src)
+// }
+// }
 
 // TODO want this ???
 type Uniform4fFunc func(gl.Context, f32.Vec4)
