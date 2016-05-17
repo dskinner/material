@@ -5,7 +5,7 @@ import (
 
 	"dasa.cc/material/glutil"
 	"dasa.cc/material/icon"
-	"dasa.cc/material/simplex"
+	"dasa.cc/simplex"
 	"golang.org/x/mobile/event/touch"
 	"golang.org/x/mobile/exp/f32"
 	"golang.org/x/mobile/gl"

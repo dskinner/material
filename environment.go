@@ -11,8 +11,8 @@ import (
 
 	"dasa.cc/material/glutil"
 	"dasa.cc/material/icon"
-	"dasa.cc/material/simplex"
 	"dasa.cc/material/text"
+	"dasa.cc/simplex"
 
 	"golang.org/x/mobile/event/size"
 	"golang.org/x/mobile/event/touch"
