@@ -96,7 +96,10 @@ func onLayout(sz size.Event) {
 		t14.Width(155), t14.Height(14), t14.Z(1), t14.StartIn(env.Box, env.Grid.Gutter), t14.Below(t16.Box, env.Grid.Gutter),
 		t12.Width(135), t12.Height(12), t12.Z(1), t12.StartIn(env.Box, env.Grid.Gutter), t12.Below(t14.Box, env.Grid.Gutter),
 	)
+	log.Println("starting layout")
+	t := time.Now()
 	env.FinishLayout()
+	log.Printf("finished layout in %s\n", time.Now().Sub(t))
 }
 
 var lastpaint time.Time
@@ -126,7 +129,9 @@ func main() {
 					}()
 					glctx = ev.DrawContext.(gl.Context)
 					onStart(glctx)
+					a.Send(paint.Event{})
 				case lifecycle.CrossOff:
+					env.Unload(glctx)
 					glctx = nil
 				}
 			case size.Event:
@@ -136,11 +141,12 @@ func main() {
 					onLayout(ev)
 				}
 			case paint.Event:
-				if glctx != nil {
-					onPaint(glctx)
-					a.Publish()
-					a.Send(paint.Event{})
+				if glctx == nil || ev.External {
+					continue
 				}
+				onPaint(glctx)
+				a.Publish()
+				a.Send(paint.Event{})
 			}
 		}
 	})
