@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"time"
 
@@ -48,7 +47,6 @@ func onStart(ctx gl.Context) {
 	ctx.CullFace(gl.BACK)
 
 	env.Load(ctx)
-	env.LoadGlyphs(ctx)
 
 	for i := range boxes {
 		boxes[i] = env.NewMaterial(ctx)
@@ -143,8 +141,6 @@ func onLayout(sz size.Event) {
 			Interp: func(dt float32) {
 				m[0][0] = w + 200*dt
 				m[0][3] = x - 200*dt/2
-				boxes[4].SetText(fmt.Sprintf("w %.0f h %.0f z %.0f", m[0][0], m[1][1], m[2][3]))
-				boxes[4].SetTextHeight(material.Dp(16).Px())
 			},
 		}.Do())
 		quits = append(quits, material.Animation{
