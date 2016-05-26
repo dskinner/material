@@ -9,6 +9,7 @@ import (
 	"image/draw"
 	_ "image/png"
 
+	"dasa.cc/material/assets"
 	"dasa.cc/material/glutil"
 	"dasa.cc/material/icon"
 	"dasa.cc/material/text"
@@ -129,8 +130,8 @@ func (env *Environment) LoadGlyphs(ctx gl.Context) {
 
 func (env *Environment) Load(ctx gl.Context) {
 	env.prg.CreateAndLink(ctx,
-		glutil.VertAsset("material/environment-vert.glsl"),
-		glutil.FragAsset("material/environment-frag.glsl"))
+		glutil.ShaderCompile(gl.VERTEX_SHADER, "env-vert.glsl", assets.VertexShader),
+		glutil.ShaderCompile(gl.FRAGMENT_SHADER, "env-frag.glsl", assets.FragmentShader))
 
 	env.uniforms.view = env.prg.Uniform(ctx, "view")
 	env.uniforms.proj = env.prg.Uniform(ctx, "proj")
