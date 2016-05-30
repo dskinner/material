@@ -103,13 +103,14 @@ float shade(vec2 pos, float sz) {
 
 void main() {
   float roundness = vvertex.w;
+
 	if (vtexcoord.x >= 0.0) {
     if (vtexcoord.z == 1.0) {
       gl_FragColor = sampleIcon();
     } else {
       gl_FragColor = sampleGlyph();
     }
-	} else if (vvertex.z <= 0.0) {
+	} else if (vvertex.z <= 0.0) { // draw shadow
     if (roundness < 8.0) {
       roundness = 8.0;
     }
@@ -131,6 +132,7 @@ void main() {
 
     // maps roundness to 1 - [0..0.66] and helps shadows cast by rectangles and ellipses
     // look similar at the same z index.
+    // TODO vvertex.w is roundness, double check usage here as was used before float roundness declared
     float e = 1.0 - (vvertex.w/vdist.z/0.75);
 
     gl_FragColor.a = smoothstep(0.0, e, shade(vdist.xy, roundness));
@@ -143,10 +145,17 @@ void main() {
 
     gl_FragColor.a *= n.x*n.y/f;
     // gl_FragColor.a *= 10.0;
-  } else {
+  } else { // draw material
     if (shouldcolor(vdist.xy, roundness)) {
       gl_FragColor = vcolor;
-      // gl_FragColor.a = 0.0;
+
+      // anti-alias roundness
+      if (gl_FragColor.a != 0.0) { // guard against exposing bg of text and icon content
+        float dist = 1.0-shade(vdist.xy, roundness);
+        // fractional based on largest size, approximates a consistent value across resolutions
+        float dt = (5.0/max(vdist.z, vdist.w));
+        gl_FragColor.a = 1.0-smoothstep(1.0-dt, 1.0, dist);
+      }
 
       // respond to touch with radial
       const float dur = 200.0;
@@ -164,9 +173,9 @@ void main() {
 
       float t = since/dur;
       if (d < 2.0*t) {
-        if (t < sqrt2) {
+        if (t < sqrt2) { // color in
           react = vec4(clr);
-        } else if (t < pi) {
+        } else if (t < pi) { // fade out
           float fac = 1.0 - (t-sqrt2)/(pi-sqrt2);
           react = vec4(fac*clr);
         }
