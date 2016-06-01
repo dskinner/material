@@ -118,13 +118,13 @@ func (env *Environment) LoadIcons(ctx gl.Context) {
 }
 
 func (env *Environment) LoadGlyphs(ctx gl.Context) {
-	src, _, err := image.Decode(glutil.MustOpen("material/source-code-pro-glyphs-sdf.png"))
+	src, _, err := image.Decode(glutil.MustOpen("material/glyphs.png"))
 	if err != nil {
 		log.Fatal(err)
 	}
 	env.glyphs.Create(ctx)
 	env.glyphs.Bind(ctx, nearestFilter, DefaultWrap)
-	env.glyphs.Update(ctx, 0, 512, 512, src.(*image.NRGBA).Pix)
+	env.glyphs.Update(ctx, 0, text.TextureSize, text.TextureSize, src.(*image.NRGBA).Pix)
 	ctx.GenerateMipmap(gl.TEXTURE_2D)
 }
 
@@ -449,23 +449,31 @@ func (env *Environment) Draw(ctx gl.Context) {
 		}
 
 		// draw text
+		tx, ty := m.world[0][3], m.world[1][3]
 		th := m.text.height
 		if th == 0 {
 			th = m.world[1][1]
 		}
-		tw := float32(36.0/72.0) * th
-		tx, ty := m.world[0][3], m.world[1][3]
+		ty = ty + m.world[1][1] - (text.AscentUnit * th)
 
 		for _, r := range m.text.value {
+			a := text.Bounds[r]
+			ax, ay, aw, ah, aa := a[0], a[1], a[2], a[3], a[4]
+			ax *= th
+			ay *= th
+			aw *= th
+			ah *= th
+			aa *= th
+
 			n = uint32(len(env.verts)) / 4
 			env.indices = append(env.indices,
 				n, n+2, n+1, n, n+3, n+2,
 			)
 			env.verts = append(env.verts,
-				tx, ty, z, 0, // v0
-				tx, ty+th, z, 0, // v1
-				tx+tw, ty+th, z, 0, // v2
-				tx+tw, ty, z, 0, // v3
+				tx+ax, ty-ay, z, 0, // v0
+				tx+ax, ty-ay+ah, z, 0, // v1
+				tx+ax+aw, ty-ay+ah, z, 0, // v2
+				tx+ax+aw, ty-ay, z, 0, // v3
 			)
 			env.colors = append(env.colors,
 				m.text.r, m.text.g, m.text.b, m.text.a,
@@ -474,10 +482,10 @@ func (env *Environment) Draw(ctx gl.Context) {
 				m.text.r, m.text.g, m.text.b, m.text.a,
 			)
 			env.dists = append(env.dists,
-				0.0, 0.0, tw, th, // v0 left, bottom
-				0.0, 1.0, tw, th, // v1 left, top
-				1.0, 1.0, tw, th, // v2 right, top
-				1.0, 0.0, tw, th, // v3 right, bottom
+				0.0, 0.0, aw, th,
+				0.0, 1.0, aw, th,
+				1.0, 1.0, aw, th,
+				1.0, 0.0, aw, th,
 			)
 			env.touches = append(env.touches,
 				0, 0, 2, 0,
@@ -485,18 +493,15 @@ func (env *Environment) Draw(ctx gl.Context) {
 				0, 0, 2, 0,
 				0, 0, 2, 0,
 			)
-
-			gxy := text.Texcoords[r]
-			gx, gy := gxy[0], gxy[1]
-			nx := float32(36) / float32(512)
-			ny := float32(72) / float32(512)
+			g := text.Texcoords[r]
+			gx, gy, gw, gh := g[0], g[1], g[2], g[3]
 			env.texcoords = append(env.texcoords,
-				gx, gy+ny, 0, 0,
+				gx, gy+gh, 0, 0,
 				gx, gy, 0, 0,
-				gx+nx, gy, 0, 0,
-				gx+nx, gy+ny, 0, 0,
+				gx+gw, gy, 0, 0,
+				gx+gw, gy+gh, 0, 0,
 			)
-			tx += tw
+			tx += aa
 		}
 	}
 

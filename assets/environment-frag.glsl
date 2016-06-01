@@ -8,10 +8,10 @@
 #define touchEnd 2.0
 precision mediump float;
 
-const float hglyph = 72.0;
+// TODO pass these in based on font used
+const float hglyph = 60.0;
 const float spread = 2.0;
 const float edge = 0.5;
-const float mess = 32.0/25.0;
 
 uniform sampler2D texglyph;
 uniform sampler2D texicon;
@@ -37,14 +37,9 @@ vec4 sampleIcon() {
 
 vec4 sampleGlyph() {
   float acoef = 0.87;
-  vec2 tc = vtexcoord.xy;
-  tc.y -= hglyph/512.0/mess;
-  float d = texture2D(texglyph, tc).a;
-
-  float height = vdist.w;
-  float h = height/1.2;
-
-  float gnum = 0.25; // just a numerator
+  float d = texture2D(texglyph, vtexcoord.xy).a;
+  float h = vdist.w;
+  float gnum = 0.25; // gamma numerator
   if (11.5 < h && h <= 12.5) {
     gnum = 0.105;
     d += 0.2;

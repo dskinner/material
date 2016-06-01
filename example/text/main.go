@@ -9,6 +9,7 @@ import (
 	"golang.org/x/mobile/event/lifecycle"
 	"golang.org/x/mobile/event/paint"
 	"golang.org/x/mobile/event/size"
+	"golang.org/x/mobile/event/touch"
 	"golang.org/x/mobile/gl"
 )
 
@@ -38,7 +39,7 @@ func onStart(ctx gl.Context) {
 
 	t112 = env.NewButton(ctx)
 	t112.SetTextColor(material.White)
-	t112.SetText("Hello go 112px")
+	t112.SetText("AAAH`e_llo |jJ go 112px")
 	t112.BehaviorFlags = material.DescriptorFlat
 
 	t56 = env.NewButton(ctx)
@@ -140,6 +141,8 @@ func main() {
 				} else {
 					onLayout(ev)
 				}
+			case touch.Event:
+				env.Touch(ev)
 			case paint.Event:
 				if glctx == nil || ev.External {
 					continue
