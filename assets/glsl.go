@@ -50,16 +50,16 @@ var FragmentShader = `#version 100
 #define onesqrt2 0.70710678118
 #define sqrt2 1.41421356237
 #define pi 3.14159265359
+#define twopi 6.28318530718
 
 #define touchBegin 0.0
 #define touchMove 1.0
 #define touchEnd 2.0
 precision mediump float;
 
-// TODO pass these in based on font used
-const float hglyph = 60.0;
-const float spread = 2.0;
-const float edge = 0.5;
+// TODO pass this in some other way so sampler can be selected
+// 0:fontsize, 1:pad, 2:edge
+uniform vec4 glyphconf;
 
 uniform sampler2D texglyph;
 uniform sampler2D texicon;
@@ -84,31 +84,20 @@ vec4 sampleIcon() {
 }
 
 vec4 sampleGlyph() {
-  float acoef = 0.87;
+  float fontsize = glyphconf.x;
+  float pad = glyphconf.y;
+  float edge = glyphconf.z;
+
   float d = texture2D(texglyph, vtexcoord.xy).a;
   float h = vdist.w;
-  float gnum = 0.25; // gamma numerator
-  if (11.5 < h && h <= 12.5) {
-    gnum = 0.105;
-    d += 0.2;
-    acoef *= 0.87;
-  } else if (12.5 < h && h <= 14.5) {
-    gnum = 0.15;
-    d += 0.08;
-  } else if (14.5 < h && h <= 18.5) {
-    gnum = 0.15;
-    d += 0.04;
-  } else if (18.5 < h && h <= 20.5) {
-    gnum = 0.2;
-  }
-  float gamma = gnum/(spread*(h/hglyph));
+  float gamma = 0.25/(pad*(h/fontsize));
 
   // d += 0.2; // bold
   // d -= 0.2; // thin
 
   vec4 clr = vcolor;
   clr.a = smoothstep(edge-gamma, edge+gamma, d);
-  clr.a *= acoef; // secondary text
+  clr.a *= 0.87; // secondary text
   return clr;
 }
 

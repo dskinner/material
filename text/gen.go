@@ -28,18 +28,19 @@ var (
 	flagOutdir   = flag.String("outdir", ".", "directory to write generated files")
 	flagPkgname  = flag.String("pkgname", "text", "package name of generated go source files")
 	flagFontfile = flag.String("fontfile", "", "filename of the ttf font")
-	flagSize     = flag.Float64("size", 60, "font size in points")
+	flagTSize    = flag.Int("tsize", 2048, "width and height of texture; 0 means pick smallest power of 2")
+	flagFSize    = flag.Float64("fsize", 72, "font size in points")
 	flagPad      = flag.Int("pad", 4, "amounted of padding for calculating sdf")
-	flagScale    = flag.Int("scale", 4, "scale inputs for calculating sdf, linear resizing final ouput to inputs")
-	flagTexture  = flag.Int("texture", 2048, "width and height of texture; 0 means pick smallest power of 2")
+	flagScale    = flag.Int("scale", 1, "scale inputs for calculating sdf, linear resizing final ouput to inputs")
+	flagAscii    = flag.Bool("ascii", false, "only process ascii glyphs")
 )
 
-var text = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789`~!@#$%^&*()-_=+[{]}\\|;:'\",<.>/? "
+var ascii = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789`~!@#$%^&*()-_=+[{]}\\|;:'\",<.>/? "
 
 type SDF struct {
-	src *image.NRGBA   // where glyphs are first written
-	dst *image.NRGBA64 // where sdf calculation is written
-	out *image.NRGBA   // final output, scaled if needed
+	src *image.NRGBA // where glyphs are first written
+	dst *image.NRGBA // where sdf calculation is written
+	out *image.NRGBA // final output, scaled if needed
 
 	tsize int
 	fsize float64
@@ -54,7 +55,7 @@ func NewSDF(textureSize int, fontSize float64, pad int, scale int) *SDF {
 	}
 
 	sdf.src = image.NewNRGBA(image.Rect(0, 0, sdf.tsize, sdf.tsize))
-	sdf.dst = image.NewNRGBA64(image.Rect(0, 0, sdf.tsize, sdf.tsize))
+	sdf.dst = image.NewNRGBA(image.Rect(0, 0, sdf.tsize, sdf.tsize))
 	if scale > 1 {
 		sdf.out = image.NewNRGBA(image.Rect(0, 0, textureSize, textureSize))
 	} else {
@@ -72,6 +73,18 @@ func (sdf *SDF) writeSrc() {
 	defer out.Close()
 
 	if err := png.Encode(out, sdf.src); err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (sdf *SDF) writeDst() {
+	out, err := os.Create(filepath.Join(*flagOutdir, "dst.png"))
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer out.Close()
+
+	if err := png.Encode(out, sdf.dst); err != nil {
 		log.Fatal(err)
 	}
 }
@@ -96,64 +109,47 @@ func (sdf *SDF) writeOut() {
 	}
 }
 
+// TODO use multiple channels to store edge intersections
 func (sdf *SDF) calc(m image.Image) {
-	var max uint16
-	size := sdf.pad / 2
+	max := dist(0, 0, sdf.pad, sdf.pad) - 1
 	b := m.Bounds()
-	// TODO this space (and probably others) could be traversed better
-	for y := b.Min.Y; y < b.Max.Y; y++ {
-		for x := b.Min.X; x < b.Max.X; x++ {
-			c := nearest(x, y, m.(*image.NRGBA).SubImage(image.Rect(x-size, y-size, x+size, y+size)))
-			if c != 0xFFFF {
-				c--
-				if max < c {
-					max = c
-				}
-			}
-			sdf.dst.Set(x, y, color.RGBA64{A: c})
-		}
-	}
-
+	// TODO this space could probably be traversed better
 	for y := b.Min.Y; y < b.Max.Y; y++ {
 		for x := b.Min.X; x < b.Max.X; x++ {
 			_, _, _, ma := m.At(x, y).RGBA()
-			_, _, _, da := sdf.dst.At(x, y).RGBA()
-			if ma == 0 && da == 0xFFFF {
-				sdf.dst.Set(x, y, color.RGBA64{A: 0})
-				continue
-			} else if ma != 0 && da == 0xFFFF {
-				sdf.dst.Set(x, y, color.RGBA64{A: 0xFFFF})
+
+			c := nearest(x, y, m.(*image.NRGBA).SubImage(image.Rect(x-sdf.pad, y-sdf.pad, x+sdf.pad, y+sdf.pad)))
+			if c == 0xFF {
+				// check if pixel is inside as a center of opposing edges
+				if ma != 0 {
+					sdf.dst.Set(x, y, color.RGBA{A: 0xFF})
+				}
 				continue
 			}
-			n := 1 - (float64(da) / float64(max))
-			c := n * 0xFFFF
 
-			if ma != 0 {
-				sdf.dst.Set(x, y, color.RGBA64{A: 0xFFFF - uint16(c/2)})
-				// } else if ma == 0 && da == 0xFFFF {
-				// d.Set(x, y, color.RGBA64{A: 0})
-			} else {
-				step := float64(0xFFFF) / float64(max)
-				if c = c - step; c < 0 {
-					c = 0
+			// return from nearest is always >= 1
+			// decrement so that c/max returns a unit value inclusive of zero
+			c--
+
+			n := 0xFF * (1 - (float64(c) / float64(max)))
+			if ma != 0 { // inside edge
+				sdf.dst.Set(x, y, color.RGBA{A: 0xFF - uint8(n/2)})
+			} else { // outside edge
+				step := float64(0xFF) / float64(max)
+				if n = n - step; n < 0 {
+					n = 0
 				}
-				sdf.dst.Set(x, y, color.RGBA64{A: uint16(c / 2)})
+				sdf.dst.Set(x, y, color.RGBA{A: uint8(n / 2)})
 			}
 		}
 	}
 }
 
-// nearest returns the distance to the closest pixel from (mx, my) of opposite color.
-func nearest(mx, my int, m image.Image) uint16 {
-	var min uint16 = 0xFFFF
+// nearest returns the distance to the closest pixel of
+// opposite color from (mx, my) in a subspace.
+func nearest(mx, my int, m image.Image) uint8 {
+	var min uint8 = 0xFF
 	_, _, _, ma := m.At(mx, my).RGBA()
-
-	// erase partially filled colors
-	if 0 < ma && ma < 0xFFFF {
-		ma = 0
-		m.(*image.NRGBA).Set(mx, my, color.Transparent)
-	}
-
 	b := m.Bounds()
 	for y := b.Min.Y; y < b.Max.Y; y++ {
 		for x := b.Min.X; x < b.Max.X; x++ {
@@ -173,9 +169,9 @@ func nearest(mx, my int, m image.Image) uint16 {
 }
 
 // distance between two points.
-func dist(x0, y0, x1, y1 int) uint16 {
+func dist(x0, y0, x1, y1 int) uint8 {
 	x, y := x1-x0, y1-y0
-	return uint16(math.Sqrt(float64(x*x+y*y)) + 0.5)
+	return uint8(math.Sqrt(float64(x*x+y*y)) + 0.5)
 }
 
 type glyph struct {
@@ -206,6 +202,16 @@ func enumerate(f *truetype.Font, fc font.Face) []*glyph {
 		}
 		if f.Index(r) != 0 {
 			b, a, _ := fc.GlyphBounds(r)
+			gs = append(gs, &glyph{r: r, b: b, a: a})
+		}
+	}
+	return gs
+}
+
+func fromString(s string, fc font.Face) []*glyph {
+	var gs []*glyph
+	for _, r := range s {
+		if b, a, ok := fc.GlyphBounds(r); ok {
 			gs = append(gs, &glyph{r: r, b: b, a: a})
 		}
 	}
@@ -243,7 +249,7 @@ func main() {
 		return
 	}
 
-	sdf := NewSDF(*flagTexture, *flagSize, *flagPad, *flagScale)
+	sdf := NewSDF(*flagTSize, *flagFSize, *flagPad, *flagScale)
 	d := &font.Drawer{
 		Dst: sdf.src,
 		Src: image.Black,
@@ -253,7 +259,12 @@ func main() {
 		}),
 	}
 
-	glyphs := enumerate(f, d.Face)
+	var glyphs []*glyph
+	if *flagAscii {
+		glyphs = fromString(ascii, d.Face)
+	} else {
+		glyphs = enumerate(f, d.Face)
+	}
 	if len(glyphs) == 0 {
 		log.Fatalf("sdf: failed to enumerate glyphs from %s\n", *flagFontfile)
 	}
@@ -294,6 +305,7 @@ func main() {
 	wg.Wait()
 
 	sdf.writeSrc()
+	sdf.writeDst()
 	sdf.writeOut()
 
 	// generate source file to accompany out.png
@@ -306,8 +318,9 @@ func main() {
 	scale := float32(sdf.fsize) / (ascent + descent)
 	fmt.Fprintf(buf, "const AscentUnit = %v\n", (ascent*scale)/float32(sdf.fsize))
 	fmt.Fprintf(buf, "const DescentUnit = %v\n", (descent*scale)/float32(sdf.fsize))
-	fmt.Fprintf(buf, "const TextureSize = %v\n", *flagTexture)
-	fmt.Fprintf(buf, "const FontSize = %v\n\n", *flagSize)
+	fmt.Fprintf(buf, "const TextureSize = %v\n", *flagTSize)
+	fmt.Fprintf(buf, "const FontSize = %v\n", *flagFSize)
+	fmt.Fprintf(buf, "const Pad = %v\n\n", *flagPad)
 
 	buf.WriteString("var Texcoords = map[rune][4]float32{\n")
 	for _, g := range glyphs {

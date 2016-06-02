@@ -15,6 +15,7 @@ var (
 	DefaultFilter = glutil.TextureFilter(gl.LINEAR, gl.LINEAR)
 	DefaultWrap   = glutil.TextureWrap(gl.REPEAT, gl.REPEAT)
 
+	linearFilter  = glutil.TextureFilter(gl.LINEAR, gl.LINEAR)
 	nearestFilter = glutil.TextureFilter(gl.NEAREST, gl.NEAREST)
 	glyphsFilter  = glutil.TextureFilter(gl.LINEAR_MIPMAP_LINEAR, gl.LINEAR)
 )

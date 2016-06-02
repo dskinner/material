@@ -67,6 +67,7 @@ type Environment struct {
 	uniforms struct {
 		view, proj, shadowColor gl.Uniform
 		glyphs, icons           gl.Uniform
+		glyphconf               gl.Uniform
 	}
 
 	attribs struct {
@@ -125,7 +126,6 @@ func (env *Environment) LoadGlyphs(ctx gl.Context) {
 	env.glyphs.Create(ctx)
 	env.glyphs.Bind(ctx, nearestFilter, DefaultWrap)
 	env.glyphs.Update(ctx, 0, text.TextureSize, text.TextureSize, src.(*image.NRGBA).Pix)
-	ctx.GenerateMipmap(gl.TEXTURE_2D)
 }
 
 func (env *Environment) Load(ctx gl.Context) {
@@ -138,6 +138,7 @@ func (env *Environment) Load(ctx gl.Context) {
 	env.uniforms.shadowColor = env.prg.Uniform(ctx, "shadowColor")
 	env.uniforms.glyphs = env.prg.Uniform(ctx, "texglyph")
 	env.uniforms.icons = env.prg.Uniform(ctx, "texicon")
+	env.uniforms.glyphconf = env.prg.Uniform(ctx, "glyphconf")
 
 	env.attribs.vertex = env.prg.Attrib(ctx, "vertex")
 	env.attribs.color = env.prg.Attrib(ctx, "color")
@@ -509,6 +510,7 @@ func (env *Environment) Draw(ctx gl.Context) {
 	env.prg.Mat4(ctx, env.uniforms.view, env.View)
 	env.prg.Mat4(ctx, env.uniforms.proj, env.proj)
 	env.prg.U4f(ctx, env.uniforms.shadowColor, shdr, shdg, shdb, shda)
+	env.prg.U4f(ctx, env.uniforms.glyphconf, text.FontSize, text.Pad, 0.5, 1)
 
 	env.buffers.texcoords.Bind(ctx)
 	env.buffers.texcoords.Update(ctx, env.texcoords)
@@ -533,7 +535,7 @@ func (env *Environment) Draw(ctx gl.Context) {
 	env.prg.Pointer(ctx, env.attribs.vertex, 4)
 
 	if env.glyphs.Value != 0 {
-		env.glyphs.Bind(ctx, glyphsFilter, DefaultWrap)
+		env.glyphs.Bind(ctx, linearFilter, DefaultWrap)
 		env.prg.U1i(ctx, env.uniforms.glyphs, int(env.glyphs.Value-1))
 	}
 
