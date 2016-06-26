@@ -1,6 +1,7 @@
 package material
 
 import (
+	"fmt"
 	"image"
 	"log"
 	"sort"
@@ -125,7 +126,14 @@ func (env *Environment) LoadGlyphs(ctx gl.Context) {
 	}
 	env.glyphs.Create(ctx)
 	env.glyphs.Bind(ctx, nearestFilter, DefaultWrap)
-	env.glyphs.Update(ctx, 0, text.TextureSize, text.TextureSize, src.(*image.NRGBA).Pix)
+	switch src.(type) {
+	case *image.RGBA:
+		env.glyphs.Update(ctx, 0, text.TextureSize, text.TextureSize, src.(*image.RGBA).Pix)
+	case *image.NRGBA:
+		env.glyphs.Update(ctx, 0, text.TextureSize, text.TextureSize, src.(*image.NRGBA).Pix)
+	default:
+		panic(fmt.Errorf("Unhandled image type %T", src))
+	}
 }
 
 func (env *Environment) Load(ctx gl.Context) {
@@ -455,6 +463,23 @@ func (env *Environment) Draw(ctx gl.Context) {
 		if th == 0 {
 			th = m.world[1][1]
 		}
+		// pad := float32(text.Pad)
+		// _ = pad
+
+		pad := float32(text.Pad) * (th / text.FontSize)
+		_ = pad
+		// tx -= pad
+
+		// tx, ty = tx-pad, ty-pad
+
+		// th += pad * 2
+		// pad := float32(0)
+		// ppad := 2 * pad
+		// npad := pad / text.TextureSize
+		// _ = npad
+		// nppad := 2 * npad
+		// _ = nppad
+		// _ = ppad
 		ty = ty + m.world[1][1] - (text.AscentUnit * th)
 
 		for _, r := range m.text.value {
@@ -464,17 +489,25 @@ func (env *Environment) Draw(ctx gl.Context) {
 			ay *= th
 			aw *= th
 			ah *= th
+
+			// aa -= npad
 			aa *= th
+
+			// aa -= pad
 
 			n = uint32(len(env.verts)) / 4
 			env.indices = append(env.indices,
 				n, n+2, n+1, n, n+3, n+2,
 			)
+			vx := tx //- pad
+			vy := ty //- pad
+			// aw += pad
+			// ah += pad
 			env.verts = append(env.verts,
-				tx+ax, ty-ay, z, 0, // v0
-				tx+ax, ty-ay+ah, z, 0, // v1
-				tx+ax+aw, ty-ay+ah, z, 0, // v2
-				tx+ax+aw, ty-ay, z, 0, // v3
+				vx+ax-pad, vy-ay-pad, z, 0, // v0
+				vx+ax-pad, vy-ay+ah+pad, z, 0, // v1
+				vx+ax+aw+pad, vy-ay+ah+pad, z, 0, // v2
+				vx+ax+aw+pad, vy-ay-pad, z, 0, // v3
 			)
 			env.colors = append(env.colors,
 				m.text.r, m.text.g, m.text.b, m.text.a,

@@ -47,6 +47,7 @@ void main() {
 `
 
 var FragmentShader = `#version 100
+#extension GL_OES_standard_derivatives : enable
 #define onesqrt2 0.70710678118
 #define sqrt2 1.41421356237
 #define pi 3.14159265359
@@ -83,21 +84,190 @@ vec4 sampleIcon() {
   return clr;
 }
 
+float median(float a, float b, float c) {
+  return max(min(a, b), min(max(a, b), c));
+}
+
+float hue(vec3 c) {
+  float lo = min(c.r, min(c.g, c.b));
+  float hi = max(c.r, max(c.g, c.b));
+
+  float n;
+  if (c.r == hi) {
+    n = (c.g-c.b)/(hi-lo);
+  } else if (c.g == hi) {
+    n = 2.0 + (c.b-c.r)/(hi-lo);
+  } else if (c.b == hi) {
+    n = 4.0 + (c.r-c.g)/(hi-lo);
+  }
+  n *= 60.0;
+  if (n < 0.0) {
+    n += 360.0;
+  }
+  return n;
+}
+
+vec3 hsl(vec3 c) {
+  float lo = min(c.r, min(c.g, c.b));
+  float hi = max(c.r, max(c.g, c.b));
+
+  float h = hue(c);
+
+  float sat = 0.0;
+  if (lo == hi) {
+    return vec3(hue(c), 0.0, 0.0);
+  }
+  float lum = (lo+hi)/2.0;
+  if (lum < 0.5) {
+    sat = (hi-lo)/(hi+lo);
+  } else {
+    sat = (hi-lo)/(2.0-hi-lo);
+  }
+  return vec3(hue(c), sat, lum);
+}
+
+float saturation(vec3 c) {
+  float lo = min(c.r, min(c.g, c.b));
+  float hi = max(c.r, max(c.g, c.b));
+
+  if (hi != 0.0) {
+    return (hi-lo)/hi;
+  }
+  return 0.0;
+}
+
+vec3 hsv2rgb(float h, float s, float v) {
+  float c = v*s;
+  float x = c * (1.0-abs(mod((h/60.0), 2.0) - 1.0));
+  float m = v-c;
+
+  vec3 clr;
+  if (0.0 <= h && h < 60.0) {
+    clr = vec3(c, x, 0.0);
+  } else if (60.0 <= h && h < 120.0) {
+    clr = vec3(x, c, 0.0);
+  } else if (120.0 <= h && h < 180.0) {
+    clr = vec3(0.0, c, x);
+  } else if (180.0 <= h && h < 240.0) {
+    clr = vec3(0.0, x, c);
+  } else if (240.0 <= h && h < 300.0) {
+    clr = vec3(x, 0.0, c);
+  } else {
+    clr = vec3(c, 0.0, x);
+  }
+  return clr+m;
+}
+
+vec3 layerhue(vec3 c) {
+  vec3 inv = 1.0-c;
+
+  float h = hue(inv);
+  float s = saturation(c);
+  float v = max(c.r, max(c.g, c.b));
+
+  // return c;
+  return hsv2rgb(h, s, v);
+
+  // return inv;
+}
+
+float special(vec3 c) {
+  float s = saturation(c);
+  float v = max(c.r, max(c.g, c.b));
+
+  // if (v > 0.5) {
+    // return v;
+  // }
+  // if (v > 0.4 && s > 0.1) {
+    // return v;
+  // }
+  // if (v  0.55 && s > 0.1) {
+  // return v;
+  // }
+  // return 0.0;
+  // if (s <= 0.05) {
+    // return 0.9;
+  // }
+  return v;
+  // return s;
+}
+
 vec4 sampleGlyph() {
   float fontsize = glyphconf.x;
   float pad = glyphconf.y;
   float edge = glyphconf.z;
 
-  float d = texture2D(texglyph, vtexcoord.xy).a;
-  float h = vdist.w;
-  float gamma = 0.25/(pad*(h/fontsize));
+  vec4 s = texture2D(texglyph, vtexcoord.xy);
+
+  // vec4 tmp = (1.0-s);
+  // tmp.a = 1.0;
+  // tmp.rgb = s.rgb-tmp.rgb;
+  // tmp.rgb *= 4.0;
+
+  // return tmp;
+
+  // float m;
+  // float v = max(tmp.r, max(tmp.g, tmp.b));
+  // tmp.rgb = vec3(1.0);
+  // float m = v;
+  // return vec4(vec3(1.0),m);
+  // return tmp;
+  // float m = median(tmp.r, tmp.g, tmp.b);
+  // if (m > 0.0) {
+    // m = 0.5;
+  // }
+
+  // s = 1.0-s;
+  // s.a = median(s.r, s.g, s.b);
+  // s.a += 0.3;
+  // return s;
+
+  // vec3 c = layerhue(s.rgb);
+  // return vec4(1.0-c, 1.0);
+
+  float m = median(s.r, s.g, s.b);
+  // float m = special(s.rgb);
+  // vec3 tmp = hsl(s.rgb);
+  // float m = tmp.g-tmp.b;
+  // return vec4(m);
+
+  // without derivatives
+  // m -= 0.5;
+  // vec4 tmp = vec4(0.0);
+  // vec2 sz = vec2(1.0/1366.0, 1.0/760.0);
+  // vec2 sz = vec2(1.0/vdist.z, 1.0/vdist.w);
+  // tmp = texture2D(texglyph, vtexcoord.xy+sz.x);
+  // float dfdx = median(tmp.r, tmp.g, tmp.b)-m;
+  // tmp = texture2D(texglyph, vtexcoord.xy+sz.y);
+  // float dfdy = median(tmp.r, tmp.g, tmp.b)-m;
+  // float fw = abs(dfdx)+abs(dfdy);
+  // m = clamp(m/fw + 0.5, 0.0, 1.0);
+
+  // with derivatives
+  m -= 0.5;
+  m = clamp(m/fwidth(m) + 0.5, 0.0, 1.0);
+
+  // float d = texture2D(texglyph, vtexcoord.xy).a;
+  // float h = vdist.w;
+  // float gamma = 0.22/(pad*(h/fontsize));
 
   // d += 0.2; // bold
   // d -= 0.2; // thin
 
   vec4 clr = vcolor;
-  clr.a = smoothstep(edge-gamma, edge+gamma, d);
-  clr.a *= 0.87; // secondary text
+  // clr.a = smoothstep(edge-gamma, edge+gamma, d);
+  // clr.r = smoothstep(edge-gamma, edge+gamma, m);
+
+  // gamma = 0.22;
+  // clr.a = smoothstep(edge-gamma, edge+gamma, m);
+  // clr = mix(vec4(0.0), vcolor, m);
+  clr.a = m;
+
+  // clr.g = 0.0;
+  // clr.b = 0.0;
+  // clr.rgb = vec3(smoothstep(edge-gamma, edge+gamma, m));
+  // clr.rgb = vec3(smoothstep(0.0, 0.5+gamma, m));
+  // clr.a *= 0.87; // secondary text
   return clr;
 }
 
