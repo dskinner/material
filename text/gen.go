@@ -32,26 +32,34 @@ var (
 	flagFSize    = flag.Float64("fsize", 72, "font size in points")
 	flagPad      = flag.Int("pad", 4, "amounted of padding for calculating sdf")
 	flagScale    = flag.Int("scale", 1, "scale inputs for calculating sdf, linear resizing final ouput to inputs")
+	flagBorder   = flag.Int("border", 1, "space around glyph")
 	flagAscii    = flag.Bool("ascii", false, "only process ascii glyphs")
 )
 
 var ascii = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789`~!@#$%^&*()-_=+[{]}\\|;:'\",<.>/? "
+
+const EdgeAlpha = 0x7f
 
 type SDF struct {
 	src *image.NRGBA // where glyphs are first written
 	dst *image.NRGBA // where sdf calculation is written
 	out *image.NRGBA // final output, scaled if needed
 
-	tsize int
-	fsize float64
-	pad   int
+	tsize  int
+	fsize  float64
+	pad    int
+	border int
+
+	padr int
 }
 
-func NewSDF(textureSize int, fontSize float64, pad int, scale int) *SDF {
+func NewSDF(textureSize int, fontSize float64, pad int, scale int, border int) *SDF {
 	sdf := &SDF{
-		tsize: textureSize * scale,
-		fsize: fontSize * float64(scale),
-		pad:   pad * scale,
+		tsize:  textureSize * scale,
+		fsize:  fontSize * float64(scale),
+		pad:    pad * scale,
+		padr:   pad,
+		border: border * scale,
 	}
 
 	sdf.src = image.NewNRGBA(image.Rect(0, 0, sdf.tsize, sdf.tsize))
@@ -100,8 +108,12 @@ func (sdf *SDF) writeOut() {
 		draw.Draw(sdf.out, sdf.out.Bounds(), sdf.dst, image.ZP, draw.Src)
 	} else {
 		b := sdf.out.Bounds()
+		// TODO get back to bilinear. Originally did bilinear with alpha only image which
+		// works well, but this bilinear filter with the new color images doesn't preserve
+		// colors well. Could be NRGBA use, could just be the lib, but gimp does what's desired
+		// with linear filter on resize.
 		rs := resize.Resize(uint(b.Dx()), uint(b.Dy()), sdf.dst, resize.Bilinear)
-		draw.Draw(sdf.out, sdf.out.Bounds(), rs, image.ZP, draw.Src)
+		draw.Draw(sdf.out, sdf.out.Bounds(), rs, image.ZP, draw.Over)
 	}
 
 	if err := png.Encode(out, sdf.out); err != nil {
@@ -109,20 +121,18 @@ func (sdf *SDF) writeOut() {
 	}
 }
 
-// TODO use multiple channels to store edge intersections
 func (sdf *SDF) calc(m image.Image) {
 	max := dist(0, 0, sdf.pad, sdf.pad) - 1
 	b := m.Bounds()
-	// TODO this space could probably be traversed better
 	for y := b.Min.Y; y < b.Max.Y; y++ {
 		for x := b.Min.X; x < b.Max.X; x++ {
-			_, _, _, ma := m.At(x, y).RGBA()
-
+			ma := m.At(x, y).(color.NRGBA).A
 			c := nearest(x, y, m.(*image.NRGBA).SubImage(image.Rect(x-sdf.pad, y-sdf.pad, x+sdf.pad, y+sdf.pad)))
 			if c == 0xFF {
 				// check if pixel is inside as a center of opposing edges
 				if ma != 0 {
 					sdf.dst.Set(x, y, color.RGBA{A: 0xFF})
+					// sdf.dst.Set(x, y, color.White)
 				}
 				continue
 			}
@@ -147,13 +157,15 @@ func (sdf *SDF) calc(m image.Image) {
 
 // nearest returns the distance to the closest pixel of
 // opposite color from (mx, my) in a subspace.
-func nearest(mx, my int, m image.Image) uint8 {
-	var min uint8 = 0xFF
-	_, _, _, ma := m.At(mx, my).RGBA()
+func nearest(mx, my int, m image.Image) float64 {
+	var min float64 = 0xFF
+	ma := m.At(mx, my).(color.NRGBA).A
 	b := m.Bounds()
 	for y := b.Min.Y; y < b.Max.Y; y++ {
 		for x := b.Min.X; x < b.Max.X; x++ {
-			_, _, _, a := m.At(x, y).RGBA()
+			a := m.At(x, y).(color.NRGBA).A
+			// check against zero guards against bad input
+			// to consistently give the desired 1px border.
 			if (ma == 0 && a != 0) || (ma != 0 && a == 0) { // implicitly prevents check against itself
 				dt := dist(mx, my, x, y)
 				if min > dt {
@@ -168,10 +180,10 @@ func nearest(mx, my int, m image.Image) uint8 {
 	return min
 }
 
-// distance between two points.
-func dist(x0, y0, x1, y1 int) uint8 {
+// dist returns distance between two points.
+func dist(x0, y0, x1, y1 int) float64 {
 	x, y := x1-x0, y1-y0
-	return uint8(math.Sqrt(float64(x*x+y*y)) + 0.5)
+	return math.Sqrt(float64(x*x + y*y))
 }
 
 type glyph struct {
@@ -193,7 +205,7 @@ func area(a []*glyph, pad int) int {
 	return n
 }
 
-// enumerate returns all glyphs with a valid index.
+// enumerate returns all glyphs with a valid index in font.
 func enumerate(f *truetype.Font, fc font.Face) []*glyph {
 	var gs []*glyph
 	for r := rune(1); r < (1<<16)-1; r++ {
@@ -208,7 +220,7 @@ func enumerate(f *truetype.Font, fc font.Face) []*glyph {
 	return gs
 }
 
-func fromString(s string, fc font.Face) []*glyph {
+func enumerateString(s string, fc font.Face) []*glyph {
 	var gs []*glyph
 	for _, r := range s {
 		if b, a, ok := fc.GlyphBounds(r); ok {
@@ -218,7 +230,7 @@ func fromString(s string, fc font.Face) []*glyph {
 	return gs
 }
 
-// byHeight sorts glyphs highest to lowest.
+// byHeight sorts glyphs tallest to shortest.
 type byHeight []*glyph
 
 func (a byHeight) Len() int           { return len(a) }
@@ -249,19 +261,19 @@ func main() {
 		return
 	}
 
-	sdf := NewSDF(*flagTSize, *flagFSize, *flagPad, *flagScale)
+	sdf := NewSDF(*flagTSize, *flagFSize, *flagPad, *flagScale, *flagBorder)
 	d := &font.Drawer{
 		Dst: sdf.src,
 		Src: image.Black,
 		Face: truetype.NewFace(f, &truetype.Options{
 			Size:    sdf.fsize,
-			Hinting: font.HintingNone,
+			Hinting: font.HintingFull,
 		}),
 	}
 
 	var glyphs []*glyph
 	if *flagAscii {
-		glyphs = fromString(ascii, d.Face)
+		glyphs = enumerateString(ascii, d.Face)
 	} else {
 		glyphs = enumerate(f, d.Face)
 	}
@@ -274,10 +286,10 @@ func main() {
 	}
 	sort.Sort(byHeight(glyphs))
 
-	x, y, dy := 0, 0, glyphs[0].height()+sdf.pad*2
+	x, y, dy := 0, 0, glyphs[0].height()+sdf.pad*2+sdf.border*2
 	var wg sync.WaitGroup
 	for _, g := range glyphs {
-		adx, ady := g.width()+sdf.pad*2, g.height()+sdf.pad*2
+		adx, ady := g.width()+sdf.pad*2+sdf.border*2, g.height()+sdf.pad*2+sdf.border*2
 		if x+adx > sdf.tsize {
 			x = 0
 			y += dy
@@ -285,20 +297,22 @@ func main() {
 		}
 
 		g.tc = [4]float32{
-			float32(x+sdf.pad) / float32(sdf.tsize),
-			float32(y+sdf.pad) / float32(sdf.tsize),
-			float32(g.width()) / float32(sdf.tsize),
-			float32(g.height()) / float32(sdf.tsize),
+			// float32(x+sdf.pad+sdf.border) / float32(sdf.tsize),
+			// float32(y+sdf.pad+sdf.border) / float32(sdf.tsize),
+			float32(x) / float32(sdf.tsize),
+			float32(y) / float32(sdf.tsize),
+			float32(g.width()+sdf.pad*2+sdf.border*2) / float32(sdf.tsize),
+			float32(g.height()+sdf.pad*2+sdf.border*2) / float32(sdf.tsize),
 		}
 
-		d.Dot = fixed.P(x+sdf.pad-int(g.b.Min.X>>6), y+sdf.pad-g.b.Min.Y.Ceil())
+		d.Dot = fixed.P(x+sdf.pad+sdf.border-int(g.b.Min.X>>6), y+sdf.pad+sdf.border-g.b.Min.Y.Ceil())
 		d.DrawString(string(g.r))
 
 		wg.Add(1)
 		go func(m image.Image) {
 			sdf.calc(m)
 			wg.Done()
-		}(sdf.src.SubImage(image.Rect(x, y, x+adx, y+ady)))
+		}(sdf.src.SubImage(image.Rect(x, y, x+adx, y+ady))) // TODO workout border issues; then stop passing in dead space to sdf calc
 
 		x += adx
 	}

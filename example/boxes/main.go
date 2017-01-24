@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"time"
 
@@ -47,6 +48,7 @@ func onStart(ctx gl.Context) {
 	ctx.CullFace(gl.BACK)
 
 	env.Load(ctx)
+	env.LoadGlyphs(ctx)
 
 	for i := range boxes {
 		boxes[i] = env.NewMaterial(ctx)
@@ -85,6 +87,9 @@ func onLayout(sz size.Event) {
 		boxes[7].CenterHorizontalIn(b), boxes[7].BottomIn(b, p),
 		boxes[8].EndIn(b, p), boxes[8].BottomIn(b, p),
 	)
+
+	boxes[4].SetTextColor(material.Black)
+	boxes[4].SetTextHeight(material.Dp(24).Px())
 
 	for _, q := range quits {
 		q <- struct{}{}
@@ -132,7 +137,7 @@ func onLayout(sz size.Event) {
 
 	func() {
 		m := boxes[4].World()
-		x, y, z := m[0][3], m[1][3], m[2][3]
+		x, y := m[0][3], m[1][3]
 		w, h := m[0][0], m[1][1]
 		quits = append(quits, material.Animation{
 			Sig:  sig,
@@ -141,6 +146,7 @@ func onLayout(sz size.Event) {
 			Interp: func(dt float32) {
 				m[0][0] = w + 200*dt
 				m[0][3] = x - 200*dt/2
+				boxes[4].SetText(fmt.Sprintf("w: %.2f\nh: %.2f", m[0][0], m[1][1]))
 			},
 		}.Do())
 		quits = append(quits, material.Animation{
@@ -150,14 +156,6 @@ func onLayout(sz size.Event) {
 			Interp: func(dt float32) {
 				m[1][1] = h + 200*dt
 				m[1][3] = y - 200*dt/2
-			},
-		}.Do())
-		quits = append(quits, material.Animation{
-			Sig:  sig,
-			Dur:  8000 * time.Millisecond,
-			Loop: true,
-			Interp: func(dt float32) {
-				m[2][3] = z + 20*dt
 			},
 		}.Do())
 	}()

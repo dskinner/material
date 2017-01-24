@@ -83,6 +83,21 @@ vec4 sampleIcon() {
   return clr;
 }
 
+// four values for a texture might look like this
+// [
+//  morton-encoded bounds,
+//  texture size,
+//  ?type? so as to invoke specific shader bits (glyph, icon, image)
+//  alpha
+// ]
+//
+// numbers are 32-bit
+// must have four values to id rectangle for texture coordinates.
+// could reduce this to 3 numbers if two were uint16 containers and one
+// specified texture size. If texture size could be set only once then
+// it could be two. Perhaps set texture size in a uniform? that would
+// allow for 2 numbers to specify rectangle and 1 for type and 1 for alpha.
+
 vec4 sampleGlyph() {
   float fontsize = glyphconf.x;
   float pad = glyphconf.y;
@@ -90,7 +105,7 @@ vec4 sampleGlyph() {
 
   float d = texture2D(texglyph, vtexcoord.xy).a;
   float h = vdist.w;
-  float gamma = 0.25/(pad*(h/fontsize));
+  float gamma = 0.22/(pad*(h/fontsize));
 
   // d += 0.2; // bold
   // d -= 0.2; // thin

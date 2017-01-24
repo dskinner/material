@@ -1,10 +1,13 @@
 package material
 
 import (
+	"bytes"
+	"fmt"
 	"image"
 	"log"
 	"sort"
 	"time"
+	"unicode"
 
 	"image/draw"
 	_ "image/png"
@@ -119,13 +122,20 @@ func (env *Environment) LoadIcons(ctx gl.Context) {
 }
 
 func (env *Environment) LoadGlyphs(ctx gl.Context) {
-	src, _, err := image.Decode(glutil.MustOpen("material/glyphs.png"))
+	src, _, err := image.Decode(bytes.NewReader(text.Texture)) //image.Decode(glutil.MustOpen("material/glyphs.png"))
 	if err != nil {
 		log.Fatal(err)
 	}
 	env.glyphs.Create(ctx)
 	env.glyphs.Bind(ctx, nearestFilter, DefaultWrap)
-	env.glyphs.Update(ctx, 0, text.TextureSize, text.TextureSize, src.(*image.NRGBA).Pix)
+	switch src.(type) {
+	case *image.RGBA:
+		env.glyphs.Update(ctx, 0, text.TextureSize, text.TextureSize, src.(*image.RGBA).Pix)
+	case *image.NRGBA:
+		env.glyphs.Update(ctx, 0, text.TextureSize, text.TextureSize, src.(*image.NRGBA).Pix)
+	default:
+		panic(fmt.Errorf("Unhandled image type %T", src))
+	}
 }
 
 func (env *Environment) Load(ctx gl.Context) {
@@ -455,6 +465,8 @@ func (env *Environment) Draw(ctx gl.Context) {
 		if th == 0 {
 			th = m.world[1][1]
 		}
+
+		pad := float32(text.Pad) * (th / text.FontSize)
 		ty = ty + m.world[1][1] - (text.AscentUnit * th)
 
 		for _, r := range m.text.value {
@@ -466,42 +478,50 @@ func (env *Environment) Draw(ctx gl.Context) {
 			ah *= th
 			aa *= th
 
-			n = uint32(len(env.verts)) / 4
-			env.indices = append(env.indices,
-				n, n+2, n+1, n, n+3, n+2,
-			)
-			env.verts = append(env.verts,
-				tx+ax, ty-ay, z, 0, // v0
-				tx+ax, ty-ay+ah, z, 0, // v1
-				tx+ax+aw, ty-ay+ah, z, 0, // v2
-				tx+ax+aw, ty-ay, z, 0, // v3
-			)
-			env.colors = append(env.colors,
-				m.text.r, m.text.g, m.text.b, m.text.a,
-				m.text.r, m.text.g, m.text.b, m.text.a,
-				m.text.r, m.text.g, m.text.b, m.text.a,
-				m.text.r, m.text.g, m.text.b, m.text.a,
-			)
-			env.dists = append(env.dists,
-				0.0, 0.0, aw, th,
-				0.0, 1.0, aw, th,
-				1.0, 1.0, aw, th,
-				1.0, 0.0, aw, th,
-			)
-			env.touches = append(env.touches,
-				0, 0, 2, 0,
-				0, 0, 2, 0,
-				0, 0, 2, 0,
-				0, 0, 2, 0,
-			)
-			g := text.Texcoords[r]
-			gx, gy, gw, gh := g[0], g[1], g[2], g[3]
-			env.texcoords = append(env.texcoords,
-				gx, gy+gh, 0, 0,
-				gx, gy, 0, 0,
-				gx+gw, gy, 0, 0,
-				gx+gw, gy+gh, 0, 0,
-			)
+			if unicode.IsSpace(r) {
+				if r == '\n' {
+					tx = m.world[0][3]
+					ty -= (text.AscentUnit * th)
+				}
+			} else {
+				n = uint32(len(env.verts)) / 4
+				env.indices = append(env.indices,
+					n, n+2, n+1, n, n+3, n+2,
+				)
+				env.verts = append(env.verts,
+					tx+ax-pad, ty-ay-pad, z, 0, // v0
+					tx+ax-pad, ty-ay+ah+pad, z, 0, // v1
+					tx+ax+aw+pad, ty-ay+ah+pad, z, 0, // v2
+					tx+ax+aw+pad, ty-ay-pad, z, 0, // v3
+				)
+				env.colors = append(env.colors,
+					m.text.r, m.text.g, m.text.b, m.text.a,
+					m.text.r, m.text.g, m.text.b, m.text.a,
+					m.text.r, m.text.g, m.text.b, m.text.a,
+					m.text.r, m.text.g, m.text.b, m.text.a,
+				)
+				env.dists = append(env.dists,
+					0.0, 0.0, aw, th,
+					0.0, 1.0, aw, th,
+					1.0, 1.0, aw, th,
+					1.0, 0.0, aw, th,
+				)
+				env.touches = append(env.touches,
+					0, 0, 2, 0,
+					0, 0, 2, 0,
+					0, 0, 2, 0,
+					0, 0, 2, 0,
+				)
+				g := text.Texcoords[r]
+				gx, gy, gw, gh := g[0], g[1], g[2], g[3]
+				env.texcoords = append(env.texcoords,
+					gx, gy+gh, 0, 0,
+					gx, gy, 0, 0,
+					gx+gw, gy, 0, 0,
+					gx+gw, gy+gh, 0, 0,
+				)
+			}
+
 			tx += aa
 		}
 	}
