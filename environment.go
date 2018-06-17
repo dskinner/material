@@ -10,7 +10,13 @@ import (
 	"unicode"
 
 	"image/draw"
+	_ "image/gif"
+	_ "image/jpeg"
 	_ "image/png"
+
+	_ "golang.org/x/image/bmp"
+	_ "golang.org/x/image/tiff"
+	_ "golang.org/x/image/webp"
 
 	"dasa.cc/material/assets"
 	"dasa.cc/material/glutil"
@@ -65,11 +71,13 @@ type Environment struct {
 	icons  glutil.Texture
 	glyphs glutil.Texture
 
+	image glutil.Texture
+
 	prg glutil.Program
 
 	uniforms struct {
 		view, proj, shadowColor gl.Uniform
-		glyphs, icons           gl.Uniform
+		glyphs, icons, image    gl.Uniform
 		glyphconf               gl.Uniform
 	}
 
@@ -121,6 +129,29 @@ func (env *Environment) LoadIcons(ctx gl.Context) {
 	env.icons.Update(ctx, 0, 2048, 2048, dst.Pix)
 }
 
+var (
+	imageSize        image.Point
+	imageTextureSize = 2048
+)
+
+func (env *Environment) LoadImage(ctx gl.Context, name string) image.Point {
+	src, _, err := image.Decode(glutil.MustOpen(name))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	imageSize = src.Bounds().Size()
+	r := image.Rect(0, 0, imageTextureSize, imageTextureSize)
+	dst := image.NewNRGBA(r)
+	draw.Draw(dst, r, src, image.ZP, draw.Src)
+
+	env.image.Create(ctx)
+	env.image.Bind(ctx, nearestFilter, DefaultWrap)
+	env.image.Update(ctx, 0, 2048, 2048, dst.Pix)
+
+	return imageSize
+}
+
 func (env *Environment) LoadGlyphs(ctx gl.Context) {
 	src, _, err := image.Decode(bytes.NewReader(text.Texture)) //image.Decode(glutil.MustOpen("material/glyphs.png"))
 	if err != nil {
@@ -149,6 +180,7 @@ func (env *Environment) Load(ctx gl.Context) {
 	env.uniforms.glyphs = env.prg.Uniform(ctx, "texglyph")
 	env.uniforms.icons = env.prg.Uniform(ctx, "texicon")
 	env.uniforms.glyphconf = env.prg.Uniform(ctx, "glyphconf")
+	env.uniforms.image = env.prg.Uniform(ctx, "image")
 
 	env.attribs.vertex = env.prg.Attrib(ctx, "vertex")
 	env.attribs.color = env.prg.Attrib(ctx, "color")
@@ -348,9 +380,15 @@ func (env *Environment) Draw(ctx gl.Context) {
 			)
 		}
 		// *** end shadow layer
+
 		x, y, z = m.world[0][3], m.world[1][3], m.world[2][3]
 		w, h = m.world[0][0], m.world[1][1]
 		n = uint32(len(env.verts)) / 4
+
+		// sin, cos := f32.Sin(m.Rotate), f32.Cos(m.Rotate)
+		// fx, fy := m.world[0][0], m.world[1][1]
+		// w = fx*cos - fy*sin
+		// h = fx*sin + fy*cos
 
 		env.indices = append(env.indices,
 			n, n+2, n+1, n, n+3, n+2,
@@ -459,6 +497,52 @@ func (env *Environment) Draw(ctx gl.Context) {
 			)
 		}
 
+		if m.ShowImage {
+			n = uint32(len(env.verts)) / 4
+			env.indices = append(env.indices,
+				n, n+2, n+1, n, n+3, n+2,
+			)
+			env.verts = append(env.verts,
+				x, y, z, 0,
+				x, y+h, z, 0,
+				x+w, y+h, z, 0,
+				x+w, y, z, 0,
+			)
+			env.colors = append(env.colors,
+				1, 1, 1, alpha,
+				1, 1, 1, alpha,
+				1, 1, 1, alpha,
+				1, 1, 1, alpha,
+			)
+			env.dists = append(env.dists,
+				0.0, 0.0, w, h, // v0 left, bottom
+				0.0, 1.0, w, h, // v1 left, top
+				1.0, 1.0, w, h, // v2 right, top
+				1.0, 0.0, w, h, // v3 right, bottom
+			)
+
+			// imgX, imgY = 1, 1
+			// proportion that image occupies of actual texture
+			// texture has to be like 2048x2048
+			// so if image is 800x600
+			// then max X value would be 800/2048
+			// and max Y value would be 600/2048
+			mX := float32(imageSize.X) / float32(imageTextureSize)
+			mY := float32(imageSize.Y) / float32(imageTextureSize)
+			env.texcoords = append(env.texcoords,
+				0, mY, 3, 0,
+				0, 0, 3, 0,
+				mX, 0, 3, 0,
+				mX, mY, 3, 0,
+			)
+			env.touches = append(env.touches,
+				0, 0, 3, 0,
+				0, 0, 3, 0,
+				0, 0, 3, 0,
+				0, 0, 3, 0,
+			)
+		}
+
 		// draw text
 		tx, ty := m.world[0][3], m.world[1][3]
 		th := m.text.height
@@ -562,6 +646,11 @@ func (env *Environment) Draw(ctx gl.Context) {
 	if env.icons.Value != 0 {
 		env.icons.Bind(ctx, DefaultFilter, DefaultWrap)
 		env.prg.U1i(ctx, env.uniforms.icons, int(env.icons.Value-1))
+	}
+
+	if env.image.Value != 0 {
+		env.image.Bind(ctx, DefaultFilter, DefaultWrap)
+		env.prg.U1i(ctx, env.uniforms.image, int(env.image.Value-1))
 	}
 
 	env.buffers.indices.Draw(ctx, env.prg, gl.TRIANGLES)

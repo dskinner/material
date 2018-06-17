@@ -34,9 +34,10 @@ void main() {
 	// of shadow's material.
 	vec4 vert = vec4(vertex.xyz, 1.0);
 	if (vert.z < 0.0) {
-		vert.z = 0.0;
+		//vert.z = 0.0;
 	}
-	// gl_Position = vert * view * proj;
+	//gl_Position = vert * view * proj;
+  //gl_Position = proj * view * vert;
   gl_Position = proj * view * vert;
 	vcolor = color;
 	vtexcoord = texcoord;
@@ -61,6 +62,8 @@ precision mediump float;
 // 0:fontsize, 1:pad, 2:edge
 uniform vec4 glyphconf;
 
+uniform sampler2D image;
+
 uniform sampler2D texglyph;
 uniform sampler2D texicon;
 uniform vec2 glyph;
@@ -80,6 +83,11 @@ vec4 sampleIcon() {
   vec4 clr = texture2D(texicon, vtexcoord.xy);
   clr.rgb += vcolor.rgb;
   clr.a *= 0.54; // https://www.google.com/design/spec/style/color.html#color-ui-color-application
+  return clr;
+}
+
+vec4 sampleImage() {
+  vec4 clr = texture2D(image, vtexcoord.xy);
   return clr;
 }
 
@@ -152,7 +160,9 @@ void main() {
   float roundness = vvertex.w;
 
 	if (vtexcoord.x >= 0.0) {
-    if (vtexcoord.z == 1.0) {
+    if (vtexcoord.z == 3.0) {
+      gl_FragColor = sampleImage();
+    } else if (vtexcoord.z == 1.0) {
       gl_FragColor = sampleIcon();
     } else {
       gl_FragColor = sampleGlyph();

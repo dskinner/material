@@ -33,7 +33,7 @@ void main() {
 	if (vert.z < 0.0) {
 		vert.z = 0.0;
 	}
-	// gl_Position = vert * view * proj;
+	//gl_Position = vert * view * proj;
   gl_Position = proj * view * vert;
 	vcolor = color;
 	vtexcoord = texcoord;

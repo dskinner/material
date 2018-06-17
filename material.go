@@ -52,6 +52,9 @@ type Material struct {
 		x, y  float32
 		start time.Time
 	}
+
+	ShowImage bool
+	Rotate    float32 // Radian
 }
 
 func (mtrl *Material) Span(col4, col8, col12 int) {

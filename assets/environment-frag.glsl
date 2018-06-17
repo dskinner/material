@@ -13,6 +13,8 @@ precision mediump float;
 // 0:fontsize, 1:pad, 2:edge
 uniform vec4 glyphconf;
 
+uniform sampler2D image;
+
 uniform sampler2D texglyph;
 uniform sampler2D texicon;
 uniform vec2 glyph;
@@ -32,6 +34,11 @@ vec4 sampleIcon() {
   vec4 clr = texture2D(texicon, vtexcoord.xy);
   clr.rgb += vcolor.rgb;
   clr.a *= 0.54; // https://www.google.com/design/spec/style/color.html#color-ui-color-application
+  return clr;
+}
+
+vec4 sampleImage() {
+  vec4 clr = texture2D(image, vtexcoord.xy);
   return clr;
 }
 
@@ -70,9 +77,14 @@ vec4 sampleGlyph() {
 
 // TODO drop this
 bool shouldcolor(vec2 pos, float sz) {
+  // maps 0.0 .. 0.5 .. 1.0
+	//   to 0.0 .. 0.5 .. 0.0
   pos = 0.5-abs(pos-0.5);
+
+	// multiply by width/height
   pos *= vdist.zw;
 
+  // 
   if (pos.x <= sz && pos.y <= sz) {
     float d = length(1.0-(pos/sz));
     if (d > 1.0) {
@@ -104,7 +116,9 @@ void main() {
   float roundness = vvertex.w;
 
 	if (vtexcoord.x >= 0.0) {
-    if (vtexcoord.z == 1.0) {
+    if (vtexcoord.z == 3.0) {
+      gl_FragColor = sampleImage();
+    } else if (vtexcoord.z == 1.0) {
       gl_FragColor = sampleIcon();
     } else {
       gl_FragColor = sampleGlyph();
