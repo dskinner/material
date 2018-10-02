@@ -1,0 +1,12 @@
+dasa.cc/simplex v0.0.0-20180617055632-ae0aeef7c530 h1:QMtj0KysAnW1yNTRWNxLHX0fESpGj9LXiaIAqbsvgoo=
+dasa.cc/simplex v0.0.0-20180617055632-ae0aeef7c530/go.mod h1:lh+Ocrt7y3C9PSHXCyuwLBNKHttPozxH8PFV1+3dOcE=
+dasa.cc/snd v0.0.0-20180617055848-131b2504d0d2 h1:VdkOkKS+EcgMLwd+rdgqkDcc8GFFDtMxmRwVdghAHts=
+dasa.cc/snd v0.0.0-20180617055848-131b2504d0d2/go.mod h1:8E38iVVJSb2hSPqBarbcVKa+t4ON9CD2i1C7VoBmArA=
+golang.org/x/image v0.0.0-20180926015637-991ec62608f3 h1:5IfA9fqItkh2alJW94tvQk+6+RF9MW2q9DzwE8DBddQ=
+golang.org/x/image v0.0.0-20180926015637-991ec62608f3/go.mod h1:ux5Hcp/YLpHSI86hEcLt0YII63i6oz57MZXIpbrjZUs=
+golang.org/x/mobile v0.0.0-20180922163855-920b52be609a h1:k2W7wqwJjS98b+ECJjOyWbVLFqNVTfBTbjtJ1OsVqj8=
+golang.org/x/mobile v0.0.0-20180922163855-920b52be609a/go.mod h1:z+o9i4GpDbdi3rU15maQ/Ox0txvL9dWGYEHz965HBQE=
+golang.org/x/sys v0.0.0-20180928133829-e4b3c5e90611 h1:O33LKL7WyJgjN9CvxfTIomjIClbd/Kq86/iipowHQU0=
+golang.org/x/sys v0.0.0-20180928133829-e4b3c5e90611/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+gopkg.in/fsnotify.v1 v1.4.7 h1:xOHLXZwVvI9hhs+cLKq5+I5onOuwQLhQwiu63xxlHs4=
+gopkg.in/fsnotify.v1 v1.4.7/go.mod h1:Tz8NjZHkW78fSQdbUxIjBTcgA1z1m8ZHf0WmKUhAMys=
