@@ -264,7 +264,7 @@ func (tex Texture) Unbind(ctx gl.Context) {
 }
 
 func (tex Texture) Update(ctx gl.Context, lvl int, width int, height int, data []byte) {
-	ctx.TexImage2D(gl.TEXTURE_2D, lvl, width, height, gl.RGBA, gl.UNSIGNED_BYTE, data)
+	ctx.TexImage2D(gl.TEXTURE_2D, lvl, int(gl.RGBA), width, height, gl.RGBA, gl.UNSIGNED_BYTE, data)
 	if lvl > 0 {
 		ctx.GenerateMipmap(gl.TEXTURE_2D)
 	}
@@ -280,7 +280,7 @@ func (tex Texture) Sub(ctx gl.Context, lvl int, width int, height int, data []by
 
 func TextureDef(lvl int, width, height int, format gl.Enum, data []byte) func(gl.Context, Texture) {
 	return func(ctx gl.Context, tex Texture) {
-		ctx.TexImage2D(gl.TEXTURE_2D, lvl, width, height, format, gl.UNSIGNED_BYTE, data)
+		ctx.TexImage2D(gl.TEXTURE_2D, lvl, int(format), width, height, format, gl.UNSIGNED_BYTE, data)
 	}
 }
 
