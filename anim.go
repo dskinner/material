@@ -56,7 +56,7 @@ func (anim Animation) Do() (quit chan struct{}) {
 					quit <- struct{}{}
 					t = 1
 				}
-				dt := float32(anim.Sig.Index(t))
+				dt := float32(anim.Sig.At(t))
 				if anim.Interp != nil {
 					anim.Interp(dt)
 				}
@@ -84,7 +84,7 @@ func Animate(mat *f32.Mat4, interp Interpolator, fn func(m *f32.Mat4, dt float32
 					quit <- struct{}{}
 					t = 1
 				}
-				dt := float32(interp.Sig.Index(t))
+				dt := float32(interp.Sig.At(t))
 				fn(&m, dt)
 			}
 		}
