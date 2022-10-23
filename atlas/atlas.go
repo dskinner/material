@@ -10,7 +10,7 @@ import (
 	"sort"
 
 	"dasa.cc/material/glutil"
-	"dasa.cc/octree"
+	"dasa.cc/x/octree"
 	"golang.org/x/mobile/gl"
 )
 
@@ -84,7 +84,7 @@ func (atlas *Atlas) Add(src image.Image) (image.Rectangle, error) {
 
 func (atl *Atlas) writeFile(name string) error {
 	out, err := os.Create(name)
-	addingif err != nil {
+	if err != nil {
 		return err
 	}
 	defer out.Close()

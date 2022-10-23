@@ -3,29 +3,34 @@ package material
 import (
 	"time"
 
-	"dasa.cc/snd"
+	"dasa.cc/signal"
 	"golang.org/x/mobile/exp/f32"
 )
 
 var (
-	ExpSig, LinSig snd.Discrete
+	ExpSig, LinSig signal.Discrete
 )
 
+func LinearDrive() signal.Discrete {
+	sig := make(signal.Discrete, 1024)
+	sig.Sample(func(t float64) float64 { return t }, 1./1024, 0)
+	return sig
+}
+
 func init() {
-	ExpSig = snd.ExpDecay()
+	ExpSig = signal.ExpDecay()
 	ExpSig.UnitInverse()
-	LinSig = snd.LinearDecay()
-	LinSig.UnitInverse()
+	LinSig = LinearDrive()
 }
 
 type Interpolator struct {
-	Sig  snd.Discrete
+	Sig  signal.Discrete
 	Dur  time.Duration
 	Loop bool
 }
 
 type Animation struct {
-	Sig    snd.Discrete
+	Sig    signal.Discrete
 	Dur    time.Duration
 	Loop   bool
 	Start  func()

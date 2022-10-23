@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"dasa.cc/material"
+	"dasa.cc/signal"
 	"dasa.cc/snd"
 	"golang.org/x/mobile/app"
 	"golang.org/x/mobile/event/lifecycle"
@@ -19,7 +20,7 @@ import (
 var (
 	env   = new(material.Environment)
 	boxes [9]*material.Material
-	sig   snd.Discrete
+	sig   signal.Discrete
 	quits []chan struct{}
 )
 
@@ -33,9 +34,9 @@ func onStart(ctx gl.Context) {
 
 	quits = []chan struct{}{}
 
-	sig = make(snd.Discrete, len(material.ExpSig))
+	sig = make(signal.Discrete, len(material.ExpSig))
 	copy(sig, material.ExpSig)
-	rsig := make(snd.Discrete, len(material.ExpSig))
+	rsig := make(signal.Discrete, len(material.ExpSig))
 	copy(rsig, material.ExpSig)
 	rsig.UnitInverse()
 	sig = append(sig, rsig...)
