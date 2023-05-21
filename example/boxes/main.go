@@ -7,7 +7,6 @@ import (
 
 	"dasa.cc/material"
 	"dasa.cc/signal"
-	"dasa.cc/snd"
 	"golang.org/x/mobile/app"
 	"golang.org/x/mobile/event/lifecycle"
 	"golang.org/x/mobile/event/paint"

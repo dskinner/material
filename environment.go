@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	"image/draw"
 	"log"
 	"sort"
 	"time"
 	"unicode"
 
-	"image/draw"
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"
@@ -153,7 +153,7 @@ func (env *Environment) LoadImage(ctx gl.Context, name string) image.Point {
 }
 
 func (env *Environment) LoadGlyphs(ctx gl.Context) {
-	src, _, err := image.Decode(bytes.NewReader(text.Texture)) //image.Decode(glutil.MustOpen("material/glyphs.png"))
+	src, _, err := image.Decode(bytes.NewReader(text.Texture)) // image.Decode(glutil.MustOpen("material/glyphs.png"))
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -260,7 +260,7 @@ func (tex Texture) Bind(ctx gl.Context, options ...func(gl.Context, Texture)) {
 }
 
 func (tex Texture) Unbind(ctx gl.Context) {
-	ctx.BindTexture(gl.TEXTURE_2D, gl.Texture{0})
+	ctx.BindTexture(gl.TEXTURE_2D, gl.Texture{Value: 0})
 }
 
 func (tex Texture) Update(ctx gl.Context, lvl int, width int, height int, data []byte) {
@@ -316,7 +316,7 @@ func (fbo Framebuffer) Bind(ctx gl.Context, options ...func(gl.Context, Framebuf
 }
 
 func (fbo Framebuffer) Unbind(ctx gl.Context) {
-	ctx.BindFramebuffer(gl.FRAMEBUFFER, gl.Framebuffer{0})
+	ctx.BindFramebuffer(gl.FRAMEBUFFER, gl.Framebuffer{Value: 0})
 }
 
 func FramebufferTex(tex Texture, lvl int) func(gl.Context, Framebuffer) {
